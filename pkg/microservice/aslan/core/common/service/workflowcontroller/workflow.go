@@ -234,7 +234,10 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	go func() {
 		for {
 			select {
-			case data := <-debugChan:
+			case data, ok := <-debugChan:
+				if !ok {
+					return
+				}
 				err := c.handleDebugEvent(data.Payload)
 				if err != nil {
 					c.logger.Errorf(fmt.Sprintf("workflow ctl run err: %s", err))
