@@ -35,6 +35,8 @@ type NacosConfig struct {
 	OriginalContentUpdateTime string `bson:"original_content_update_time,omitempty" json:"original_content_update_time,omitempty" yaml:"original_content_update_time,omitempty"`
 	NamespaceID               string `bson:"namespace_id"                           json:"namespace_id"                           yaml:"namespace_id"`
 	NamespaceName             string `bson:"namespace_name"                         json:"namespace_name"                         yaml:"namespace_name"`
+	// ContentError is set only by the OpenAPI workflow preset when the content of an option cannot be read.
+	ContentError string `bson:"-" json:"content_error,omitempty" yaml:"-"`
 
 	// for frontend
 	Diff        interface{} `bson:"diff,omitempty" json:"diff,omitempty" yaml:"diff,omitempty"`

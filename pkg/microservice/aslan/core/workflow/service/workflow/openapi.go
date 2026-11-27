@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -30,11 +31,13 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -295,6 +298,9 @@ func OpenAPIGetCustomWorkflowTaskPreset(encryptedKey, projectKey, workflowKey, u
 	}
 	workflow, err = GetWorkflowV4Preset(encryptedKey, workflowKey, userID, username, "", log)
 	if err != nil {
+		return nil, err
+	}
+	if err := fillOpenAPINacosOptionContents(workflow); err != nil {
 		return nil, err
 	}
 	codehosts, err := mongodb.NewCodehostColl().AvailableCodeHost(projectKey)
@@ -596,6 +602,10 @@ func getInputUpdater(job *commonmodels.Job, input interface{}, workflow *commonm
 		updater := new(TapdJobInput)
 		err := commonmodels.IToi(input, updater)
 		return updater, err
+	case config.JobNacos:
+		updater := new(NacosJobInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
 	default:
 		return nil, errors.New("undefined job type of type:" + string(job.JobType))
 	}
@@ -833,4 +843,68 @@ func OpenAPIGetCustomWorkflowTaskV4(name, projectName string, pageNum, pageSize 
 	}
 
 	return resp, nil
+}
+
+const openAPINacosContentConcurrency = 10
+
+// fillOpenAPINacosOptionContents reads the content of every selectable Nacos config, because
+// listing configs returns only their group and data ID. OpenAPI callers need the content to edit it.
+func fillOpenAPINacosOptionContents(workflow *commonmodels.WorkflowV4) error {
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobNacos {
+				continue
+			}
+			spec := new(commonmodels.NacosJobSpec)
+			if err := commonmodels.IToi(job.Spec, spec); err != nil {
+				return fmt.Errorf("failed to decode nacos job %s: %w", job.Name, err)
+			}
+			// A workflow with fixed configs runs only those configs, so do not offer the rest of the range.
+			if spec.DataFixed {
+				fixedSet := sets.NewString()
+				for _, data := range spec.DefaultNacosDatas {
+					fixedSet.Insert(data.Group + "/" + data.DataID)
+				}
+				options := make([]*types.NacosConfig, 0, len(spec.NacosDataOptions))
+				for _, option := range spec.NacosDataOptions {
+					if fixedSet.Has(option.Group + "/" + option.DataID) {
+						options = append(options, option)
+					}
+				}
+				spec.NacosDataOptions = options
+				job.Spec = spec
+			}
+			if len(spec.NacosDataOptions) == 0 {
+				continue
+			}
+			client, err := commonservice.GetNacosClient(spec.NacosID)
+			if err != nil {
+				return fmt.Errorf("failed to get nacos client for job %s: %w", job.Name, err)
+			}
+
+			var wg sync.WaitGroup
+			limit := make(chan struct{}, openAPINacosContentConcurrency)
+			for _, option := range spec.NacosDataOptions {
+				wg.Add(1)
+				limit <- struct{}{}
+				go func(option *types.NacosConfig) {
+					defer func() {
+						<-limit
+						wg.Done()
+					}()
+					current, err := client.GetConfig(option.DataID, option.Group, spec.NamespaceID)
+					if err != nil {
+						option.ContentError = err.Error()
+						return
+					}
+					option.Format = current.Format
+					option.Content = current.Content
+					option.OriginalContent = current.Content
+				}(option)
+			}
+			wg.Wait()
+			job.Spec = spec
+		}
+	}
+	return nil
 }

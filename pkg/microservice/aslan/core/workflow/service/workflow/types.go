@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type Workflow struct {
@@ -1941,6 +1942,110 @@ func (p *TapdJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, 
 			StartDate:     iterationInfo.StartDate,
 			EndDate:       iterationInfo.EndDate,
 		})
+	}
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
+type NacosJobInput struct {
+	NamespaceID string               `json:"namespace_id"`
+	NacosDatas  []*NacosJobDataInput `json:"nacos_datas"`
+}
+
+type NacosJobDataInput struct {
+	Group   string  `json:"group"`
+	DataID  string  `json:"data_id"`
+	Content *string `json:"content"`
+}
+
+func (p *NacosJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.NacosJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, fmt.Errorf("failed to convert job.Spec to commonmodels.NacosJobSpec, err: %w", err)
+	}
+
+	if p.NamespaceID != "" && p.NamespaceID != newSpec.NamespaceID {
+		if newSpec.Source == config.ParamSourceFixed {
+			return nil, fmt.Errorf("namespace_id is fixed to %s by the workflow", newSpec.NamespaceID)
+		}
+		newSpec.NamespaceID = p.NamespaceID
+	}
+	rangeSet := sets.NewString(newSpec.NacosDataRange...)
+	fixedSet := sets.NewString()
+	for _, data := range newSpec.DefaultNacosDatas {
+		fixedSet.Insert(data.Group + "/" + data.DataID)
+	}
+
+	inputs := make(map[string]*NacosJobDataInput, len(p.NacosDatas))
+	selected := make([]types.NacosDataID, 0, len(p.NacosDatas))
+	for _, input := range p.NacosDatas {
+		if input == nil || input.Group == "" || input.DataID == "" {
+			return nil, errors.New("group and data_id are required for each nacos config")
+		}
+		key := input.Group + "/" + input.DataID
+		if _, ok := inputs[key]; ok {
+			return nil, fmt.Errorf("duplicate nacos config: %s", key)
+		}
+		if newSpec.DataFixed && !fixedSet.Has(key) {
+			return nil, fmt.Errorf("nacos config %s is not one of the configs fixed by the workflow", key)
+		}
+		if rangeSet.Len() > 0 && !rangeSet.Has("*") && !rangeSet.Has(key) {
+			return nil, fmt.Errorf("nacos config %s is outside the config range of the workflow", key)
+		}
+		inputs[key] = input
+		selected = append(selected, types.NacosDataID{Group: input.Group, DataID: input.DataID})
+	}
+
+	// Fixed configs are always updated together, as in the UI; configs left out keep their content.
+	if newSpec.DataFixed {
+		selected = make([]types.NacosDataID, 0, len(newSpec.DefaultNacosDatas))
+		for _, data := range newSpec.DefaultNacosDatas {
+			selected = append(selected, types.NacosDataID{Group: data.Group, DataID: data.DataID})
+		}
+	}
+	if len(selected) == 0 {
+		return nil, errors.New("nacos_datas is required")
+	}
+
+	client, err := commonservice.GetNacosClient(newSpec.NacosID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nacos client: %w", err)
+	}
+	namespaces, err := client.ListNamespaces()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nacos namespaces: %w", err)
+	}
+	namespaceName := ""
+	for _, namespace := range namespaces {
+		if namespace.NamespaceID == newSpec.NamespaceID {
+			namespaceName = namespace.NamespacedName
+			break
+		}
+	}
+
+	newSpec.NacosDatas = make([]*types.NacosConfig, 0, len(selected))
+	for _, id := range selected {
+		key := id.Group + "/" + id.DataID
+		// Listing configs does not return content or format, so read each selected config.
+		current, err := client.GetConfig(id.DataID, id.Group, newSpec.NamespaceID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get nacos config %s in namespace %s: %w", key, newSpec.NamespaceID, err)
+		}
+
+		data := &types.NacosConfig{
+			NacosDataID:     id,
+			Format:          current.Format,
+			Content:         current.Content,
+			OriginalContent: current.Content,
+			NamespaceID:     newSpec.NamespaceID,
+			NamespaceName:   namespaceName,
+		}
+		if input, ok := inputs[key]; ok && input.Content != nil {
+			data.Content = *input.Content
+		}
+		newSpec.NacosDatas = append(newSpec.NacosDatas, data)
 	}
 
 	job.Spec = newSpec
