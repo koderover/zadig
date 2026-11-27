@@ -9,15 +9,23 @@ import (
 )
 
 func RequestFingerprint(conversation string, req models.RunRequest) string {
+	var cardOperation []any
+	if c := req.UIContinuation; c != nil {
+		cardOperation = []any{c.CardID, c.SubmissionID, c.Hash, c.Retry}
+	}
 	encoded, _ := json.Marshal(struct {
-		Conversation string
-		Regenerate   string `json:",omitempty"`
-		Retry        string `json:",omitempty"`
-		Request      models.RunRequest
+		Conversation  string
+		Regenerate    string              `json:",omitempty"`
+		Retry         string              `json:",omitempty"`
+		CardReply     *models.UICardReply `json:",omitempty"`
+		CardOperation []any               `json:",omitempty"`
+		Request       models.RunRequest
 	}{
-		Conversation: conversation,
-		Request:      req,
-		Retry:        req.RetryFrom,
+		Conversation:  conversation,
+		CardReply:     req.CardReply,
+		CardOperation: cardOperation,
+		Request:       req,
+		Retry:         req.RetryFrom,
 		Regenerate: func() string {
 			if req.RegenerateFrom != nil {
 				return req.RegenerateFrom.ID

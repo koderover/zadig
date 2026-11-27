@@ -47,6 +47,9 @@ func updateToolErrorTarget(e *execution, raw []byte) {
 
 func stopAfterToolFailures(ctx context.Context, args *tool.BeforeToolArgs) (*tool.BeforeToolResult, error) {
 	if e, ok := ctx.Value(executionKey{}).(*execution); ok {
+		if e.UIPending || e.UIFallback != "" {
+			return &tool.BeforeToolResult{CustomResult: map[string]string{"status": "awaiting_input"}}, nil
+		}
 		if args != nil {
 			updateToolErrorTarget(e, args.Arguments)
 		}

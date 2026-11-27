@@ -73,6 +73,7 @@ func (s *AgentService) catalog(ctx context.Context, args models.CatalogRequest) 
 	if err != nil {
 		return nil, err
 	}
+	recordCardCatalogOptions(e, args.Kind, common.JSON(value))
 	switch args.Kind {
 	case "yaml_templates", "build_templates":
 		return map[string]any{"result": value, "keyword": args.Keyword, "limit": 50, "note": "按完整模板名精确匹配当前页，total 是未过滤的模板总数；未匹配且 next_page 非零时继续查询，不能认定模板不存在；名称不明确或有歧义时请用户确认"}, nil

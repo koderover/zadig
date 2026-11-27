@@ -378,6 +378,13 @@ func (s *Store) refreshExpiredTitle(ctx context.Context, cutoff time.Time) (int6
 	return result.RowsAffected, result.Error
 }
 
+// A continuation may have no Skill root, so its source also needs protection
+// through the card/submission relationship.
+const noActiveCardContinuation = " AND NOT EXISTS (SELECT 1 FROM ai_ui_card c" +
+	" JOIN ai_ui_submission sub ON sub.card_id=c.id" +
+	" JOIN ai_run attempt ON attempt.id=sub.current_attempt_run_id WHERE c.run_id=r.id" +
+	" AND (attempt.status IN ('running','cancelling','executing','unknown') OR attempt.plan_status='unknown'))"
+
 func (s *Store) cleanupExpiredRuns(ctx context.Context, cutoff time.Time) (int64, error) {
 	var conversation, user string
 	err := s.DB.WithContext(ctx).Raw(
@@ -390,7 +397,7 @@ func (s *Store) cleanupExpiredRuns(ctx context.Context, cutoff time.Time) (int64
 			" FROM ai_run child"+
 			" WHERE child.skill_execution_id=r.id"+
 			" AND (child.status IN ('running','cancelling','executing',"+
-			"'unknown') OR child.plan_status='unknown')) ORDER BY r.created_at,r.id LIMIT 1",
+			"'unknown') OR child.plan_status='unknown'))"+noActiveCardContinuation+" ORDER BY r.created_at,r.id LIMIT 1",
 		cutoff,
 	).Row().Scan(&conversation, &user)
 	if err == sql.ErrNoRows {
@@ -426,7 +433,7 @@ func (s *Store) cleanupExpiredRuns(ctx context.Context, cutoff time.Time) (int64
 			" FROM ai_run child"+
 			" WHERE child.skill_execution_id=r.id"+
 			" AND (child.status IN ('running','cancelling','executing',"+
-			"'unknown') OR child.plan_status='unknown')) ORDER BY r.created_at,r.id LIMIT 50 FOR UPDATE",
+			"'unknown') OR child.plan_status='unknown'))"+noActiveCardContinuation+" ORDER BY r.created_at,r.id LIMIT 50 FOR UPDATE",
 		conversation,
 		cutoff,
 	).

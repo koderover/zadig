@@ -27,7 +27,8 @@ func (a *API) getPreferences(c *gin.Context) {
 }
 
 // putPreferences godoc
-// @Summary 保存本人 AI 助手偏好，空对象清除偏好
+// @Summary 保存本人 AI 助手偏好
+// @Description 请求体传空对象 {} 时清除本人偏好。
 // @Tags AI助手
 // @Accept json
 // @Produce json

@@ -50,6 +50,10 @@ func aguiRequest(input aguitypes.RunAgentInput) (models.RunRequest, error) {
 	request := models.RunRequest{
 		RequestID: input.RunID, Message: text,
 		Context: props.PageContext, SkillExecutionID: props.SkillExecutionID,
+		ChatMessage: true, CardReply: props.CardReply,
+	}
+	if reply := request.CardReply; reply != nil && (len(reply.CardID) != 36 || reply.Revision < 1) {
+		return request, fmt.Errorf("card_reply 必须包含有效的 card_id 和 revision")
 	}
 	if err := common.ValidateRequest(request); err != nil {
 		return request, fmt.Errorf("runId 对应请求标识：%w", err)
@@ -150,7 +154,7 @@ func (a *API) stream(c *gin.Context, id string, ch <-chan service.StreamEvent, r
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache, no-transform")
 	c.Header("X-Accel-Buffering", "no")
-	stream := &aguiStream{context: c, run: current, runID: runID, phaseID: phaseID, translator: native, writer: sse.NewSSEWriter()}
+	stream := &aguiStream{assistant: a.Agent, context: c, run: current, runID: runID, phaseID: phaseID, translator: native, writer: sse.NewSSEWriter()}
 	if !stream.write(aguievents.NewRunStartedEvent(current.ConversationID, stream.runID)) ||
 		!stream.snapshot(current) {
 		return
@@ -211,6 +215,7 @@ func aguiRunID(run *models.Run) string {
 }
 
 type aguiStream struct {
+	assistant  *service.AgentService
 	context    *gin.Context
 	run        *models.Run
 	runID      string
@@ -224,6 +229,14 @@ func (s *aguiStream) write(event aguievents.Event) bool {
 }
 
 func (s *aguiStream) snapshot(run *models.Run) bool {
+	if s.assistant != nil {
+		cards, err := s.assistant.AuthorizedUICards(s.context.Request.Context(), requestUser(s.context), s.context.GetHeader("Authorization"), run.ID, cutoff(s.context))
+		if err != nil {
+			s.fail(err)
+			return false
+		}
+		run.Cards = &cards
+	}
 	s.run = run
 	return s.write(aguievents.NewStateSnapshotEvent(gin.H{"run": run}))
 }
@@ -270,6 +283,22 @@ func (s *aguiStream) event(update service.StreamEvent) bool {
 			break
 		}
 		return s.writeMessages(events)
+	case "ui_card":
+		card, ok := update.Data.(*models.UICard)
+		if !ok || s.assistant == nil {
+			break
+		}
+		cards, err := s.assistant.AuthorizedUICards(s.context.Request.Context(), requestUser(s.context), s.context.GetHeader("Authorization"), card.RunID, cutoff(s.context))
+		if err != nil {
+			s.fail(err)
+			return false
+		}
+		for _, current := range cards {
+			if current.ID == card.ID {
+				return s.write(aguievents.NewCustomEvent("halman.ui_card", aguievents.WithValue(current)))
+			}
+		}
+		return true
 	case "conversation_title", "confirmation_required":
 		return s.write(aguievents.NewCustomEvent("halman."+update.Type, aguievents.WithValue(update.Data)))
 	case "operation":

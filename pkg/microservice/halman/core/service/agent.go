@@ -61,6 +61,11 @@ type execution struct {
 	ToolFailures       map[string]string
 	ToolErrorCount     int
 	ToolErrorTarget    map[string]string
+	UICardsEnabled     bool
+	UIPending          bool
+	UIContinuation     *models.UIContinuation
+	UIFallback         string
+	UICatalogOptions   map[string][]models.UIOption
 	Message            string
 	CatalogNeedsInput  bool
 	PersistingSnapshot bool
@@ -573,10 +578,15 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 					return nil, err
 				}
 			}
-			if e.RegenerateFrom == nil && (e.PendingOnboarding || e.continuingOnboarding()) {
+			if cfg.MaxOutputTokens == 0 && e.RegenerateFrom == nil && (e.PendingOnboarding || e.continuingOnboarding()) {
 				req.MaxTokens = model.IntPtr(16384)
 				slog.Info("AI 初始化续接模型参数", "run_id", e.Run.ID, "model", cfg.Model,
 					"max_output_tokens", *req.MaxTokens)
+			}
+			if len(services) > 0 {
+				if response, err := services[0].prepareUIModelRequest(ctx, e, req); response != nil || err != nil {
+					return response, err
+				}
 			}
 			applyCatalogClarification(e, req)
 			applyToolFailureLimit(e, req)
@@ -599,7 +609,7 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 	finalization := callLimitFinalizationInstruction(cfg.Language)
 	agentOptions := []llmagent.Option{
 		llmagent.WithModel(chatModel),
-		llmagent.WithInstruction(builtinInstructions + "\n" + outputLanguageInstruction(cfg.Language)),
+		llmagent.WithInstruction(builtinInstructions + "\n" + uiCardInstructions + "\n" + outputLanguageInstruction(cfg.Language)),
 		llmagent.WithGenerationConfig(generationConfig(cfg, true, maxTokens)),
 		llmagent.WithMaxLLMCalls(*runConfig.MaxLLMCalls),
 		llmagent.WithMaxToolIterations(*runConfig.MaxToolIterations),
@@ -607,7 +617,7 @@ func makeRunner(cfg *types.AIAssistantRuntime, sessions session.Service, platfor
 		llmagent.WithToolIterationLimitFinalization(finalization),
 		llmagent.WithEnableParallelTools(false),
 		llmagent.WithModelCallbacks(callbacks),
-		llmagent.WithToolCallbacks(tool.NewCallbacks().RegisterBeforeTool(stopAfterToolFailures).RegisterAfterTool(recordToolFailure)),
+		llmagent.WithToolCallbacks(tool.NewCallbacks().RegisterBeforeTool(stopAfterToolFailures).RegisterAfterTool(recordToolFailure).RegisterAfterTool(uiToolCallback)),
 	}
 	if len(services) > 0 {
 		tools := services[0].tools()
@@ -716,6 +726,8 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 	runCtx, cancel := context.WithTimeout(s.Context, time.Duration(*runConfig.RunTimeoutSeconds)*time.Second)
 	e := &execution{
 		Message:         req.Message,
+		UIContinuation:  req.UIContinuation,
+		UICardsEnabled:  true,
 		Language:        language.Normalize(cfg.Language),
 		Run:             record,
 		User:            user,
@@ -728,6 +740,10 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 
 		HistoryContextTokens: runConfig.HistoryContextTokens,
 		MultipleModels:       len(cfg.LLMIntegrationIDs) > 0,
+	}
+	if record.RepliedCardRunID != "" {
+		// The user's latest message determines whether to resume this draft.
+		e.RootID, e.ContinuingSkill = "", ""
 	}
 	if req.RegenerateFrom != nil {
 		e.SkillID = req.RegenerateFrom.SkillID
@@ -834,7 +850,7 @@ func (s *AgentService) execute(ctx context.Context, cancel context.CancelFunc, r
 		status, failure = "failed", lang.Text("消息保存失败，请查询运行状态", "Failed to save messages; check the run status")
 	}
 
-	if status == "succeeded" && !hasAnswer {
+	if status == "succeeded" && !hasAnswer && !record.HasUICards {
 		status, failure = "failed", missingAnswerFailure(lastAssistantChoice, lang)
 	}
 

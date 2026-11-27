@@ -305,6 +305,12 @@ func (a *API) getRun(c *gin.Context) {
 		return
 	}
 
+	cards, err := a.Agent.AuthorizedUICards(c.Request.Context(), requestUser(c), c.GetHeader("Authorization"), item.ID, cutoff(c))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	item.Cards = &cards
 	c.JSON(http.StatusOK, item)
 }
 

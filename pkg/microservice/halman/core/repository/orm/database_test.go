@@ -87,6 +87,8 @@ func expectBusinessTables(mock sqlmock.Sqlmock) {
 		"CREATE TABLE IF NOT EXISTS ai_run .*active_plan_run_id.*answer_available.*question_source_run_id.*idx_run_plan_status.*idx_run_question_version",
 		"CREATE TABLE IF NOT EXISTS ai_feedback",
 		"CREATE TABLE IF NOT EXISTS ai_usage_daily .*completed_elapsed_ms",
+		"CREATE TABLE IF NOT EXISTS ai_ui_card .*idx_ui_card_source.*idx_ui_card_page",
+		"CREATE TABLE IF NOT EXISTS ai_ui_submission .*UNIQUE KEY idx_ui_submission_card",
 	} {
 		mock.ExpectExec(query).WillReturnResult(sqlmock.NewResult(0, 0))
 	}

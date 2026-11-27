@@ -39,6 +39,9 @@ func (s *AgentService) saveDraft(ctx context.Context, e *execution, args models.
 	e.OnboardingSaved = true
 
 	e.Outcome = "awaiting_input"
+	if e.UICardsEnabled && e.SkillID == "project_onboarding" {
+		s.presentProjectDraft(ctx, e, args, missing)
+	}
 	result := map[string]any{
 		"status":                 "awaiting_input",
 		"missing_fields":         missing,

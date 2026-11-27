@@ -34,6 +34,10 @@ func (s *AgentService) tools() []tool.Tool {
 	// 工具结果包含对象或数组，显式 Schema 避免框架反射 any 的零值时发生 panic。
 	outputSchema := function.WithOutputSchema(&tool.Schema{})
 	return []tool.Tool{
+		function.NewFunctionTool(s.requestQuestion, outputSchema, function.WithInputSchema(uiToolInputSchema("question")), function.WithName("request_question"), function.WithDescription("一次询问一到五个短问题、单选或多选，等待用户回答。")),
+		function.NewFunctionTool(s.requestForm, outputSchema, function.WithInputSchema(uiToolInputSchema("form")), function.WithName("request_form"), function.WithDescription("收集有类型和格式约束的参数，例如数字、开关、长文本。禁止索要凭据。")),
+		function.NewFunctionTool(s.requestResourceSelection, outputSchema, function.WithInputSchema(uiToolInputSchema("resource_selector")), function.WithName("request_resource_selection"), function.WithDescription("请用户检索和选择有权访问的项目、环境与服务。")),
+		function.NewFunctionTool(s.presentActions, outputSchema, function.WithInputSchema(uiToolInputSchema("actions")), function.WithName("present_actions"), function.WithDescription("展示可选的后续动作：预填消息、站内导航或提交并继续助手任务。")),
 		function.NewFunctionTool(
 			s.readSavedOperation,
 			outputSchema,
@@ -176,7 +180,7 @@ func (s *AgentService) skillSnapshot(ctx context.Context, user, conversation str
 		if root.ConversationID != conversation || root.SkillExecutionID == nil || *root.SkillExecutionID != req.SkillExecutionID || root.SkillID == "" {
 			return nil, "", common.ErrRequestConflict
 		}
-		if req.RegenerateFrom == nil && (root.SkillStatus == nil || (*root.SkillStatus != "awaiting_input" && *root.SkillStatus != "pending_confirmation")) {
+		if req.RegenerateFrom == nil && !(req.UIContinuation != nil && req.UIContinuation.Retry) && (root.SkillStatus == nil || (*root.SkillStatus != "awaiting_input" && *root.SkillStatus != "pending_confirmation")) {
 			return nil, "", common.ErrRequestConflict
 		}
 		continuing = root.SkillID
