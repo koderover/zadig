@@ -33,6 +33,7 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -254,18 +255,21 @@ func PreLoadHelmServiceChart(service *commonmodels.Service, production bool, cha
 		base = config.LocalServicePathWithRevision(service.ProductName, service.ServiceName, chartInstantiateDeploy.ChartVersion, production)
 	}
 	if err := commonutil.PreloadServiceManifestsByRevision(base, service, production); err != nil {
-		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", service.Revision, service.ServiceName)
-		// use the latest version when it fails to download the specific version
-		base = config.LocalServicePath(service.ProductName, service.ServiceName, production)
-		if err = commonutil.PreLoadServiceManifests(base, service, production); err != nil {
-			log.Errorf("failed to load chart info for service %v, production: %v", service.ServiceName, production)
-			return "", fmt.Errorf("failed to load chart info for service %s", service.ServiceName)
-		}
+		return "", fmt.Errorf("failed to load chart archive for service %s/%s revision %d, production %t: %w", service.ProductName, service.ServiceName, service.Revision, production, err)
 	}
 
 	chartFullPath := filepath.Join(base, service.ServiceName)
 	if chartInstantiateDeploy != nil && chartInstantiateDeploy.isChartInstantiateDeploy {
 		chartFullPath = filepath.Join(base, chartInstantiateDeploy.ChartName)
+	}
+	// Read the chart to ensure the archived files are readable and valid.
+	ch, err := loader.Load(chartFullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to load chart for service %s/%s revision %d: %w", service.ProductName, service.ServiceName, service.Revision, err)
+	}
+	// Require the actual chart version to match the selected service template.
+	if ch.Metadata.Version != service.HelmChart.Version {
+		return "", fmt.Errorf("chart version mismatch for service %s/%s revision %d: expected %s, got %s", service.ProductName, service.ServiceName, service.Revision, service.HelmChart.Version, ch.Metadata.Version)
 	}
 	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
 	if err != nil {
