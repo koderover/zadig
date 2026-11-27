@@ -160,7 +160,9 @@ func UpdatePrivateKey(c *gin.Context) {
 
 	detail := fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP)
 	detailEn := fmt.Sprintf("Host Name: %s, IP: %s", args.Name, args.IP)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-主机管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	if !args.UpdateStatus {
+		internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-主机管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
