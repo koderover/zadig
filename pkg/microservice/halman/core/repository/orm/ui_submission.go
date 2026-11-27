@@ -65,7 +65,7 @@ func saveUIRun(tx *gorm.DB, user string, req models.RunRequest, run *models.Run)
 	var revision int
 	var expiry sql.NullTime
 	err = tx.Raw("SELECT payload,status,revision,expires_at FROM ai_ui_card WHERE id=? AND user_id=? AND run_id=? FOR UPDATE",
-		u.CardID, user, source.ID).Row().Scan(&raw, &cardStatus, &revision, &expiry)
+		u.Card.ID, user, source.ID).Row().Scan(&raw, &cardStatus, &revision, &expiry)
 	if errors.Is(err, sql.ErrNoRows) {
 		return common.ErrNotFound
 	}
@@ -76,7 +76,7 @@ func saveUIRun(tx *gorm.DB, user string, req models.RunRequest, run *models.Run)
 	next := "submitted"
 	if u.Retry {
 		var current string
-		err := tx.Raw("SELECT current_attempt_run_id FROM ai_ui_submission WHERE id=? AND card_id=? FOR UPDATE", u.SubmissionID, u.CardID).Row().Scan(&current)
+		err := tx.Raw("SELECT current_attempt_run_id FROM ai_ui_submission WHERE id=? AND card_id=? FOR UPDATE", u.SubmissionID, u.Card.ID).Row().Scan(&current)
 		if errors.Is(err, sql.ErrNoRows) {
 			return common.ErrRequestConflict
 		}
@@ -101,11 +101,11 @@ func saveUIRun(tx *gorm.DB, user string, req models.RunRequest, run *models.Run)
 			return err
 		}
 		if err := tx.Exec("INSERT INTO ai_ui_submission (id,card_id,revision,action_id,values_json,continuation_run_id,current_attempt_run_id,created_at) VALUES (?,?,?,?,?,?,?,?)",
-			common.NewID(), u.CardID, revision, u.ActionID, string(common.JSON(u.Values)), run.ID, run.ID, run.CreatedAt).Error; err != nil {
+			common.NewID(), u.Card.ID, revision, u.ActionID, string(common.JSON(u.Values)), run.ID, run.ID, run.CreatedAt).Error; err != nil {
 			return err
 		}
 	}
-	if err := tx.Exec("UPDATE ai_ui_card SET status=?,revision=revision+1 WHERE id=?", next, u.CardID).Error; err != nil {
+	if err := tx.Exec("UPDATE ai_ui_card SET status=?,revision=revision+1 WHERE id=?", next, u.Card.ID).Error; err != nil {
 		return err
 	}
 	var rawScopes []byte

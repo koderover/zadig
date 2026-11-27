@@ -160,6 +160,13 @@ func ValidateUICard(c models.UICard) error {
 	}
 	return nil
 }
+
+// An omitted, null or empty field has no value.
+func UIValueEmpty(value any) bool {
+	list, multiple := value.([]any)
+	return value == nil || value == "" || multiple && len(list) == 0
+}
+
 func ValidateUIValues(c models.UICard, actionID string, values map[string]any) error {
 	if err := ValidateUICard(c); err != nil {
 		return err
@@ -186,12 +193,8 @@ func ValidateUIValues(c models.UICard, actionID string, values map[string]any) e
 	fields := map[string]bool{}
 	for _, f := range d.Fields {
 		fields[f.ID] = true
-		v, exists := values[f.ID]
-		empty := !exists || v == nil || v == ""
-		if arr, ok := v.([]any); ok && len(arr) == 0 {
-			empty = true
-		}
-		if empty {
+		v := values[f.ID]
+		if UIValueEmpty(v) {
 			if f.Required {
 				return fmt.Errorf("%s is required", f.Label)
 			}

@@ -103,7 +103,7 @@ type UIContinuation struct {
 	ResourceScopes  []ResourceScope
 	// Input is built from the authorized card and validated values; never accepted from JSON.
 	Input        json.RawMessage
-	CardID       string
+	Card         UICard
 	Revision     int
 	SubmissionID string
 	ActionID     string

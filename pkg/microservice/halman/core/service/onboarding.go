@@ -22,6 +22,13 @@ import (
 
 var projectKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
 
+func validateProjectKey(key string) error {
+	if !projectKeyPattern.MatchString(key) {
+		return fmt.Errorf("项目标识只能包含小写字母、数字和短横线，最长三十二位")
+	}
+	return nil
+}
+
 func checkConfigPath(value string) error {
 	if value == "" || len(value) > 1024 || strings.Contains(value, "\\") || strings.HasPrefix(value, "/") || path.Clean(value) != value ||
 		value == ".." ||
@@ -130,8 +137,8 @@ func (s *AgentService) prepareOnboarding(ctx context.Context, args models.Onboar
 
 	if args.ProjectKey == "" {
 		missing = append(missing, "项目标识")
-	} else if !projectKeyPattern.MatchString(args.ProjectKey) {
-		return nil, fmt.Errorf("项目标识只能包含小写字母、数字和短横线，最长三十二位")
+	} else if err := validateProjectKey(args.ProjectKey); err != nil {
+		return nil, err
 	}
 	if newProject {
 		if args.Builds == nil {

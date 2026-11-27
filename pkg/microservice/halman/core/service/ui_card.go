@@ -125,51 +125,56 @@ func (s *AgentService) AuthorizedUICards(ctx context.Context, user, auth, run st
 }
 func (s *AgentService) FilterUICards(ctx context.Context, user, auth string, cards []models.UICard, cutoff time.Time) ([]models.UICard, error) {
 	out := []models.UICard{}
-	checked := map[string]bool{}
-	for _, c := range cards {
-		if !checked[c.RunID] {
-			scopes, err := s.Store.ContextScopes(ctx, user, c.ConversationID, cutoff, []string{c.RunID})
+	runAllowed := map[string]bool{}
+	authorize := s.Platform.scopeAuthorizer(ctx, auth)
+cardsLoop:
+	for _, card := range cards {
+		allowed, checked := runAllowed[card.RunID]
+		if !checked {
+			scopes, err := s.Store.ContextScopes(ctx, user, card.ConversationID, cutoff, []string{card.RunID})
 			if err != nil {
 				return nil, err
 			}
 			if len(scopes) != 1 {
 				return nil, common.ErrNotFound
 			}
-			if err := s.Platform.authorizeScopes(ctx, auth, scopes[0].Scopes); err != nil {
-				if cardAccessDenied(err) {
-					continue
+			allowed = true
+			for _, scope := range scopes[0].Scopes {
+				if err := authorize(scope); err != nil {
+					if !cardAccessDenied(err) {
+						return nil, err
+					}
+					allowed = false
+					break
 				}
-				return nil, err
 			}
-			checked[c.RunID] = true
+			runAllowed[card.RunID] = allowed
 		}
-		if c.Type == "resource_selector" && c.Submission != nil {
-			permitted := true
-			for _, value := range c.ResourceSelections {
-				values := []any{value}
-				if many, ok := value.([]any); ok {
-					values = many
-				}
-				for _, selected := range values {
-					var resource models.UIResource
-					if json.Unmarshal(common.JSON(selected), &resource) != nil || resource.ProjectKey == "" {
-						permitted = false
-						break
-					}
-					if err := s.Platform.authorizeContext(ctx, auth, models.PageContext{ProjectKey: resource.ProjectKey, EnvName: resource.EnvName, Production: resource.Production}); err != nil {
-						if !cardAccessDenied(err) {
-							return nil, err
-						}
-						permitted = false
-						break
-					}
-				}
-			}
-			if !permitted {
+		if !allowed {
+			continue
+		}
+		for _, value := range card.ResourceSelections {
+			if common.UIValueEmpty(value) {
 				continue
 			}
+			values, multiple := value.([]any)
+			if !multiple {
+				values = []any{value}
+			}
+			for _, selected := range values {
+				var resource models.UIResource
+				if json.Unmarshal(common.JSON(selected), &resource) != nil || resource.ProjectKey == "" {
+					continue cardsLoop
+				}
+				if err := authorize(uiResourceScope(resource)); err != nil {
+					if cardAccessDenied(err) {
+						continue cardsLoop
+					}
+					return nil, err
+				}
+			}
 		}
-		out = append(out, c)
+		out = append(out, card)
 	}
 	return out, nil
 }

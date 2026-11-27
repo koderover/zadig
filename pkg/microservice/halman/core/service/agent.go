@@ -658,6 +658,9 @@ func (s *AgentService) subscription(record *models.Run, subscribe bool) (*RunSub
 
 func (s *AgentService) start(ctx context.Context, user, conversation, authorization string, req models.RunRequest, cfg *types.AIAssistantRuntime, subscribe bool) (*RunSubscription, error) {
 	if err := common.ValidateRequest(req); err != nil {
+		if req.UIContinuation != nil {
+			return nil, fmt.Errorf("%w: %s", common.ErrInvalidRequest, err)
+		}
 		return nil, err
 	}
 
@@ -670,6 +673,11 @@ func (s *AgentService) start(ctx context.Context, user, conversation, authorizat
 
 	if !cfg.Enabled {
 		return nil, common.ErrAIDisabled
+	}
+	if u := req.UIContinuation; u != nil {
+		if err := s.prepareUICardRun(ctx, authorization, u); err != nil {
+			return nil, err
+		}
 	}
 	if cfg.AllowUserModelSelection {
 		preference, err := s.Store.ModelPreference(ctx, user)

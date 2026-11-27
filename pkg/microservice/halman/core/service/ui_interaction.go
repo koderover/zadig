@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -58,9 +57,8 @@ func (s *AgentService) startUICardRun(ctx context.Context, user, auth string, ca
 		return nil, err
 	}
 	u := &models.UIContinuation{
-		CardID: card.ID, SourceRun: source, Revision: req.Revision, ActionID: req.ActionID, Values: req.Values,
+		Card: card, SourceRun: source, Revision: req.Revision, ActionID: req.ActionID, Values: req.Values,
 		SubmissionID: submissionID, Retry: submissionID != "", Hash: submissionHash(req),
-		Input: uiContinuationInput(card, req.ActionID, req.Values),
 	}
 	input := models.RunRequest{
 		RequestID: req.RequestID, Context: source.Context,
@@ -68,34 +66,6 @@ func (s *AgentService) startUICardRun(ctx context.Context, user, auth string, ca
 	}
 	if source.SkillExecutionID != nil {
 		input.SkillExecutionID = *source.SkillExecutionID
-	}
-	if err := common.ValidateRequest(input); err != nil {
-		return nil, fmt.Errorf("%w: %s", common.ErrInvalidRequest, err)
-	}
-	if _, err = s.Store.FindRequest(ctx, user, source.ConversationID, input, cutoff); err != nil {
-		if !errors.Is(err, common.ErrNotFound) {
-			return nil, err
-		}
-		if !u.Retry && (card.Status != "pending" || card.Revision != req.Revision) {
-			return nil, common.ErrRequestConflict
-		}
-		if err := common.ValidateUIValues(card, req.ActionID, req.Values); err != nil {
-			return nil, err
-		}
-		if card.Type == "resource_selector" {
-			scopes, err := s.validateUIResources(ctx, user, auth, card, req.Values, cutoff)
-			if err != nil {
-				return nil, err
-			}
-			u.ResourceScopes = scopes
-		}
-	}
-	if card.DraftFields && req.ActionID != "skip" {
-		patch, err := onboardingCardPatch(source, req.Values)
-		if err != nil {
-			return nil, err
-		}
-		u.OnboardingPatch = &patch
 	}
 	if _, err := s.Start(ctx, user, source.ConversationID, auth, input, cfg); err != nil {
 		return nil, err
@@ -110,6 +80,41 @@ func (s *AgentService) startUICardRun(ctx context.Context, user, auth string, ca
 	result := *saved.Submission
 	result.Card = saved
 	return &result, nil
+}
+
+// Called after the run idempotency lookup, before reserving a new run.
+func (s *AgentService) prepareUICardRun(ctx context.Context, auth string, u *models.UIContinuation) error {
+	card := u.Card
+	if !u.Retry && (card.Status != "pending" || card.Revision != u.Revision) {
+		return common.ErrRequestConflict
+	}
+	if err := common.ValidateUIValues(card, u.ActionID, u.Values); err != nil {
+		return err
+	}
+	if card.Type == "resource_selector" {
+		// Keep the original fingerprint, but store and forward only actual choices.
+		normalized := make(map[string]any, len(u.Values))
+		for key, value := range u.Values {
+			if !common.UIValueEmpty(value) {
+				normalized[key] = value
+			}
+		}
+		u.Values = normalized
+		scopes, err := s.validateUIResources(ctx, auth, card, u.Values)
+		if err != nil {
+			return err
+		}
+		u.ResourceScopes = scopes
+	}
+	if card.DraftFields && u.ActionID != "skip" {
+		patch, err := onboardingCardPatch(u.SourceRun, u.Values)
+		if err != nil {
+			return err
+		}
+		u.OnboardingPatch = &patch
+	}
+	u.Input = uiContinuationInput(card, u.ActionID, u.Values)
+	return nil
 }
 
 // Keep field identity and JSON types for the model; the visible message stays human-readable.
@@ -200,20 +205,57 @@ func (s *AgentService) UIResourceOptions(ctx context.Context, user, auth, runID,
 			return nil, "", common.ErrInvalidCursor
 		}
 	}
+	authorize := s.Platform.scopeAuthorizer(ctx, auth)
+	items, err := s.loadUIResourceOptions(ctx, auth, authorize, *field, parents)
+	if err != nil {
+		return nil, "", err
+	}
+	query = strings.ToLower(query)
+	filtered := items[:0]
+	for _, item := range items {
+		if !strings.Contains(strings.ToLower(item.Label+" "+item.Value), query) {
+			continue
+		}
+		if err := authorize(uiResourceScope(item.Resource)); err != nil {
+			if cardAccessDenied(err) {
+				continue
+			}
+			return nil, "", err
+		}
+		filtered = append(filtered, item)
+	}
+	items = filtered
+	sort.Slice(items, func(i, j int) bool { return items[i].Value < items[j].Value })
+	if offset >= len(items) {
+		return []models.UIResourceOption{}, "", nil
+	}
+	end := offset + 50
+	next := ""
+	if end < len(items) {
+		next = strconv.Itoa(end)
+	} else {
+		end = len(items)
+	}
+	return items[offset:end], next, nil
+}
+
+// Load the candidate set once for the field and selected parent.
+func (s *AgentService) loadUIResourceOptions(ctx context.Context, auth string, authorize func(models.ResourceScope) error, field models.UIField, parents map[string]any) ([]models.UIResourceOption, error) {
 	parent := models.UIResource{}
 	if field.ParentFieldID != "" {
 		raw, ok := parents[field.ParentFieldID]
-		if !ok {
-			return []models.UIResourceOption{}, "", nil
+		if !ok || common.UIValueEmpty(raw) {
+			return nil, nil
 		}
 		if json.Unmarshal(common.JSON(raw), &parent) != nil || parent.ProjectKey == "" {
-			return nil, "", common.ErrInvalidRequest
+			return nil, common.ErrInvalidRequest
 		}
-		if err := s.Platform.authorizeContext(ctx, auth, models.PageContext{ProjectKey: parent.ProjectKey, EnvName: parent.EnvName, Production: parent.Production}); err != nil {
-			return nil, "", err
+		if err := authorize(uiResourceScope(parent)); err != nil {
+			return nil, err
 		}
 	}
 	var raw json.RawMessage
+	var err error
 	switch field.ResourceType {
 	case "project":
 		raw, err = s.Platform.business(ctx, auth, http.MethodGet, "/api/v1/picket/projects", url.Values{"verbosity": {"detailed"}, "ungrouped": {"false"}}, nil)
@@ -221,18 +263,18 @@ func (s *AgentService) UIResourceOptions(ctx context.Context, user, auth, runID,
 		raw, err = s.Platform.business(ctx, auth, http.MethodGet, "/api/environment/environments", url.Values{"projectName": {parent.ProjectKey}, "production": {strconv.FormatBool(field.Production)}}, nil)
 	case "service":
 		if parent.EnvName == "" || parent.Production != field.Production {
-			return nil, "", common.ErrInvalidRequest
+			return nil, common.ErrInvalidRequest
 		}
 		raw, err = s.Platform.business(ctx, auth, http.MethodGet, "/api/environment/environments/"+url.PathEscape(parent.EnvName), url.Values{"projectName": {parent.ProjectKey}, "production": {strconv.FormatBool(parent.Production)}}, nil)
 	default:
-		return nil, "", common.ErrInvalidRequest
+		return nil, common.ErrInvalidRequest
 	}
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	var value any
 	if json.Unmarshal(raw, &value) != nil {
-		return nil, "", common.ErrInvalidRequest
+		return nil, common.ErrInvalidRequest
 	}
 	items := []models.UIResourceOption{}
 	seen := map[string]bool{}
@@ -278,9 +320,7 @@ func (s *AgentService) UIResourceOptions(ctx context.Context, user, auth, runID,
 				} else {
 					resource.ServiceName = key
 				}
-				if strings.Contains(strings.ToLower(label+" "+key), strings.ToLower(query)) {
-					items = append(items, models.UIResourceOption{Label: label, Value: key, Resource: resource})
-				}
+				items = append(items, models.UIResourceOption{Label: label, Value: key, Resource: resource})
 				seen[key] = true
 				return
 			}
@@ -292,86 +332,51 @@ func (s *AgentService) UIResourceOptions(ctx context.Context, user, auth, runID,
 		}
 	}
 	walk(value)
-	sort.Slice(items, func(i, j int) bool { return items[i].Value < items[j].Value })
-	authorized := items[:0]
-	for _, item := range items {
-		if s.Platform.authorizeContext(ctx, auth, models.PageContext{ProjectKey: item.Resource.ProjectKey, EnvName: item.Resource.EnvName, Production: item.Resource.Production}) == nil {
-			authorized = append(authorized, item)
-		}
-	}
-	items = authorized
-	if offset >= len(items) {
-		return []models.UIResourceOption{}, "", nil
-	}
-	end := offset + 50
-	next := ""
-	if end < len(items) {
-		next = strconv.Itoa(end)
-	} else {
-		end = len(items)
-	}
-	return items[offset:end], next, nil
+	return items, nil
 }
-func (s *AgentService) validateUIResources(ctx context.Context, user, auth string, card models.UICard, values map[string]any, cutoff time.Time) ([]models.ResourceScope, error) {
-	d, _ := common.UIDataOf(card)
+
+func uiResourceScope(r models.UIResource) models.ResourceScope {
+	return models.ResourceScope{PageContext: models.PageContext{ProjectKey: r.ProjectKey, EnvName: r.EnvName, Production: r.Production}}
+}
+
+func (s *AgentService) validateUIResources(ctx context.Context, auth string, card models.UICard, values map[string]any) ([]models.ResourceScope, error) {
+	d, err := common.UIDataOf(card)
+	if err != nil {
+		return nil, err
+	}
+	authorize := s.Platform.scopeAuthorizer(ctx, auth)
 	var scopes []models.ResourceScope
-	for _, f := range d.Fields {
-		if values[f.ID] == nil {
+	for _, field := range d.Fields {
+		value := values[field.ID]
+		if common.UIValueEmpty(value) {
 			continue
 		}
-		wanted := []any{values[f.ID]}
-		if f.Multiple {
-			wanted, _ = values[f.ID].([]any)
+		options, err := s.loadUIResourceOptions(ctx, auth, authorize, field, values)
+		if err != nil {
+			return nil, err
 		}
-		seen := map[models.UIResource]bool{}
-		for _, v := range wanted {
+		candidates := make(map[models.UIResource]bool, len(options))
+		for _, option := range options {
+			candidates[option.Resource] = true
+		}
+		wanted := []any{value}
+		if field.Multiple {
+			wanted, _ = value.([]any)
+		}
+		for _, selection := range wanted {
 			var r models.UIResource
-			decoder := json.NewDecoder(strings.NewReader(string(common.JSON(v))))
+			decoder := json.NewDecoder(strings.NewReader(string(common.JSON(selection))))
 			decoder.DisallowUnknownFields()
-			if decoder.Decode(&r) != nil || r.ProjectKey == "" || seen[r] {
-				return nil, common.ErrInvalidRequest
+			if decoder.Decode(&r) != nil || !candidates[r] {
+				return nil, fmt.Errorf("%w: resource selection changed or is not permitted", common.ErrInvalidRequest)
 			}
-			seen[r] = true
-			// Match against fresh, permission-checked options, including parent and production identity.
-			needle := r.ProjectKey
-			if f.ResourceType == "environment" {
-				needle = r.EnvName
-			}
-			if f.ResourceType == "service" {
-				needle = r.ServiceName
-			}
-			if err := matchUIResource(r, func(cursor string) ([]models.UIResourceOption, string, error) {
-				return s.UIResourceOptions(ctx, user, auth, card.RunID, card.ID, f.ID, needle, cursor, values, cutoff)
-			}); err != nil {
+			delete(candidates, r)
+			scope := uiResourceScope(r)
+			if err := authorize(scope); err != nil {
 				return nil, err
 			}
-			scopes = append(scopes, models.ResourceScope{PageContext: models.PageContext{ProjectKey: r.ProjectKey, EnvName: r.EnvName, Production: r.Production}})
+			scopes = append(scopes, scope)
 		}
 	}
 	return scopes, nil
-}
-
-func matchUIResource(wanted models.UIResource, load func(string) ([]models.UIResourceOption, string, error)) error {
-	cursor := ""
-	seen := map[string]bool{}
-	for i := 0; i < 200; i++ {
-		if seen[cursor] {
-			break
-		}
-		seen[cursor] = true
-		items, next, err := load(cursor)
-		if err != nil {
-			return err
-		}
-		for _, item := range items {
-			if item.Resource == wanted {
-				return nil
-			}
-		}
-		if next == "" {
-			break
-		}
-		cursor = next
-	}
-	return fmt.Errorf("%w: resource selection changed or is not permitted", common.ErrInvalidRequest)
 }

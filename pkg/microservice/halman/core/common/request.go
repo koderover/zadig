@@ -11,7 +11,7 @@ import (
 func RequestFingerprint(conversation string, req models.RunRequest) string {
 	var cardOperation []any
 	if c := req.UIContinuation; c != nil {
-		cardOperation = []any{c.CardID, c.SubmissionID, c.Hash, c.Retry}
+		cardOperation = []any{c.Card.ID, c.SubmissionID, c.Hash, c.Retry}
 	}
 	encoded, _ := json.Marshal(struct {
 		Conversation  string

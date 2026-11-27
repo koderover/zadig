@@ -142,16 +142,29 @@ func onboardingCardPatch(source *models.Run, values map[string]any) (models.Onbo
 	for key, value := range values {
 		switch key {
 		case "project_name", "project_key", "project_type":
-			if text, ok := value.(string); !ok || strings.TrimSpace(text) == "" {
+			text, ok := value.(string)
+			text = strings.TrimSpace(text)
+			if !ok || text == "" {
 				return result, common.ErrInvalidRequest
 			}
-			patch[key] = strings.TrimSpace(value.(string))
+			if key == "project_key" {
+				if err := validateProjectKey(text); err != nil {
+					return result, fmt.Errorf("%w: %s", common.ErrInvalidRequest, err)
+				}
+			}
+			patch[key] = text
 		case "environment.name", "environment.namespace", "environment.cluster_id", "environment.registry_id":
 			text, ok := value.(string)
 			if !ok || strings.TrimSpace(text) == "" {
 				return result, common.ErrInvalidRequest
 			}
-			environment[strings.TrimPrefix(key, "environment.")] = strings.TrimSpace(text)
+			text = strings.TrimSpace(text)
+			if key == "environment.name" || key == "environment.namespace" {
+				if err := checkNames(text); err != nil {
+					return result, fmt.Errorf("%w: %s", common.ErrInvalidRequest, err)
+				}
+			}
+			environment[strings.TrimPrefix(key, "environment.")] = text
 		case "environment.choice":
 			// This choice is applied after processing its dependent fields.
 		case "environment.services":
@@ -169,8 +182,17 @@ func onboardingCardPatch(source *models.Run, values map[string]any) (models.Onbo
 			if len(names) == 0 || len(names) > 20 {
 				return result, common.ErrInvalidRequest
 			}
+			seen := map[string]bool{}
 			for _, name := range names {
-				services = append(services, map[string]any{"name": strings.TrimSpace(name)})
+				name = strings.TrimSpace(name)
+				if name != strings.ToLower(name) || seen[name] {
+					return result, fmt.Errorf("%w: 服务名称不能重复或包含大写字母", common.ErrInvalidRequest)
+				}
+				if err := checkNames(name); err != nil {
+					return result, fmt.Errorf("%w: %s", common.ErrInvalidRequest, err)
+				}
+				seen[name] = true
+				services = append(services, map[string]any{"name": name})
 			}
 		default:
 			if !strings.HasPrefix(key, "service.") || !strings.HasSuffix(key, ".source") {

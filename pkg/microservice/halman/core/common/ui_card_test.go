@@ -36,11 +36,11 @@ func TestUIRunFingerprintSeparatesRequestIdentity(t *testing.T) {
 	base := models.RunRequest{RequestID: "same", Message: "提交"}
 	text := RequestFingerprint("conversation", base)
 	first := base
-	first.UIContinuation = &models.UIContinuation{CardID: "first", Hash: "same-content"}
+	first.UIContinuation = &models.UIContinuation{Card: models.UICard{ID: "first"}, Hash: "same-content"}
 	second := first
-	second.UIContinuation = &models.UIContinuation{CardID: "second", Hash: "same-content"}
+	second.UIContinuation = &models.UIContinuation{Card: models.UICard{ID: "second"}, Hash: "same-content"}
 	retry := first
-	retry.UIContinuation = &models.UIContinuation{CardID: "first", SubmissionID: "submission", Hash: "same-content", Retry: true}
+	retry.UIContinuation = &models.UIContinuation{Card: models.UICard{ID: "first"}, SubmissionID: "submission", Hash: "same-content", Retry: true}
 	a, b, c := RequestFingerprint("conversation", first), RequestFingerprint("conversation", second), RequestFingerprint("conversation", retry)
 	if text == a || a == b || a == c || b == c {
 		t.Fatal("different card operations shared the same request fingerprint")
