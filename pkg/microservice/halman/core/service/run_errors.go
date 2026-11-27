@@ -68,8 +68,8 @@ func hideCredentialValues(text string, values map[string]string, keys []string) 
 
 func callLimitFinalizationInstruction(locale string) string {
 	return language.Normalize(locale).Text(
-		"本轮工具调用已达到上限，不再调用任何工具。根据已返回的结果，用简短正文说明当前进度、具体阻塞原因和下一步需要的信息。只在工具已成功保存草稿时说明草稿已保存。未执行的动作不能报告成功；已有待确认清单仍须用户点击确认卡片。不要要求用户重复提供草稿已有的信息，不展示凭据值。",
-		"The tool-call limit for this turn has been reached. Do not call more tools. Give a brief final response explaining the current progress, the specific blocker and the next information needed. Say the draft is saved only if a tool successfully saved it. Do not claim unexecuted actions succeeded. Existing pending plans still require the confirmation card. Do not ask again for saved information or display credential values.",
+		"这是本轮最后一次回答，不再调用工具。根据已有信息直接回答；如任务未完成，简短说明当前进度、阻塞原因和下一步需要的信息。只在工具已成功保存草稿时说明草稿已保存。未执行的动作不能报告成功；已有待确认清单仍须用户点击确认卡片。不要要求用户重复提供草稿已有的信息，不展示凭据值。",
+		"This is the final response for this turn. Do not call more tools. Answer from the available information. If the task is incomplete, briefly explain the progress, the blocker and what is needed next. Say the draft is saved only if a tool successfully saved it. Do not claim unexecuted actions succeeded. Existing pending plans still require the confirmation card. Do not ask again for saved information or display credential values.",
 	)
 }
 

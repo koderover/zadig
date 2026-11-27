@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS ai_conversation (
     KEY idx_conversation_deleted (deleted_at, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS ai_user_preference (
+    user_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
+    model_id VARCHAR(128) NOT NULL,
+    reasoning_effort VARCHAR(16) NOT NULL,
+    PRIMARY KEY (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS ai_skill (
     id VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
     source VARCHAR(16) CHARACTER SET ascii NOT NULL,

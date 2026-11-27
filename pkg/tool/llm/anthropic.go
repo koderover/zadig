@@ -46,6 +46,7 @@ type AnthropicClient struct {
 	token           string
 	baseURL         string
 	httpClient      *http.Client
+	parameters      ModelParameters
 }
 
 type anthropicMessageRequest struct {
@@ -54,6 +55,7 @@ type anthropicMessageRequest struct {
 	Messages      []anthropicMessage `json:"messages"`
 	Temperature   *float32           `json:"temperature,omitempty"`
 	StopSequences []string           `json:"stop_sequences,omitempty"`
+	OutputConfig  map[string]string  `json:"output_config,omitempty"`
 }
 
 type anthropicMessage struct {
@@ -79,6 +81,9 @@ type anthropicUsage struct {
 }
 
 func (c *AnthropicClient) Configure(config LLMConfig) error {
+	if err := config.ModelParameters.Validate(ProtocolAnthropic); err != nil {
+		return err
+	}
 	baseURL := strings.TrimRight(config.GetBaseURL(), "/")
 	if baseURL == "" {
 		baseURL = defaultAnthropicBaseURL
@@ -100,6 +105,7 @@ func (c *AnthropicClient) Configure(config LLMConfig) error {
 	c.token = config.GetToken()
 	c.baseURL = baseURL
 	c.httpClient = httpClient
+	c.parameters = config.ModelParameters
 	return nil
 }
 
@@ -126,9 +132,12 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 			return "", errors.New("anthropic model is required")
 		}
 	}
-	maxTokens := opts.MaxTokens
+	maxTokens := c.parameters.limitOutputTokens(opts.MaxTokens)
 	if maxTokens == 0 {
 		maxTokens = defaultAnthropicMaxTokens
+	}
+	if err := c.parameters.checkPromptBudget(requestCtx, prompt, maxTokens); err != nil {
+		return "", err
 	}
 
 	request := &anthropicMessageRequest{
@@ -139,6 +148,9 @@ func (c *AnthropicClient) GetCompletion(ctx context.Context, prompt string, opti
 	}
 	if opts.hasTemperature() {
 		request.Temperature = &opts.Temperature
+	}
+	if c.parameters.ReasoningEffort != "" {
+		request.OutputConfig = map[string]string{"effort": c.parameters.ReasoningEffort}
 	}
 	requestBody, err := json.Marshal(request)
 	if err != nil {
@@ -221,7 +233,7 @@ func (c *AnthropicClient) Parse(ctx context.Context, prompt string, cache cache.
 	if opts.Model != "" {
 		model = opts.Model
 	}
-	cacheKey := GetCacheKeyWithModel(cacheNamespace(ProtocolAnthropic, c.integrationName, Provider(c.GetName())), model, prompt)
+	cacheKey := GetCacheKeyWithModel(cacheNamespace(ProtocolAnthropic, c.integrationName, Provider(c.GetName()), c.parameters), model, prompt)
 	if !cache.IsCacheDisabled() && cache.Exists(cacheKey) {
 		response, err := cache.Load(cacheKey)
 		if err != nil {

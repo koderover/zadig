@@ -1776,9 +1776,17 @@ trpc.group/trpc-go/trpc-a2a-go v0.2.6-0.20260721084546-18c8244d0acb h1:hW6SMv4qf
 trpc.group/trpc-go/trpc-a2a-go v0.2.6-0.20260721084546-18c8244d0acb/go.mod h1:7nbGA66/9AZ2j8+juvl7IsH0FC9jEdrxgsmBLrdKnLw=
 trpc.group/trpc-go/trpc-agent-go v1.11.2 h1:qBgrX48JXvgf+k6cq1BSWR4oPfFXxp8/boYydAs4PNM=
 trpc.group/trpc-go/trpc-agent-go v1.11.2/go.mod h1:bIZcN4N9sGpA42sWfE98XCPl9ZgMi6fMDLGYOaXNe9A=
+trpc.group/trpc-go/trpc-agent-go v1.12.0 h1:zQ80GIwrJuugnXDyXVJ3iBKryCmnL3po1wRUpxHBQ8U=
+trpc.group/trpc-go/trpc-agent-go v1.12.0/go.mod h1:EjRAYkzjeQfW/Xhhwd/k96dRNZ//EPOsIMtMWSuQ39A=
 trpc.group/trpc-go/trpc-agent-go/server/agui v1.11.1-0.20260820040323-5a0030b628a5 h1:AwiLjXvvfg8VLRFfq5IEKmCR/DZ+0APeyRdkrsFkBxg=
 trpc.group/trpc-go/trpc-agent-go/server/agui v1.11.1-0.20260820040323-5a0030b628a5/go.mod h1:g+PJqsyPyctAZ3dnoaVp4bx4q1R/524RiBAEgbE0Uso=
+trpc.group/trpc-go/trpc-agent-go/server/agui v1.12.0 h1:5ASgE2sSH5Tbf82nKENCQ7Q3Exx5oD0WkDJP7RntBt4=
+trpc.group/trpc-go/trpc-agent-go/server/agui v1.12.0/go.mod h1:/bc3Of50qulKZteQymZ2G/qnBYPkSYkgIHdg2eSHzR0=
 trpc.group/trpc-go/trpc-agent-go/session/mysql v1.11.2 h1:9Zw+2X8o6UmTyOQeRC2IW0SNoDIlIKld27oK4VviJSA=
 trpc.group/trpc-go/trpc-agent-go/session/mysql v1.11.2/go.mod h1:wOjvWOKfnxD3hEitzrOIbeRDx/gIQWLJPQm/tGX9L8A=
+trpc.group/trpc-go/trpc-agent-go/session/mysql v1.12.0 h1:3gKqM7AnUm2Rv34spf2+zOo5Y2TlQfn1vJskLVl86T4=
+trpc.group/trpc-go/trpc-agent-go/session/mysql v1.12.0/go.mod h1:ADTQaDSks5usBH/iRvdGz0O52q1eWXEy6tsc636FIyc=
 trpc.group/trpc-go/trpc-agent-go/storage/mysql v0.5.0 h1:0mEfSfopzlCAWUwOWlp03fVzUWz7Vf79OMAXrhLN4VY=
 trpc.group/trpc-go/trpc-agent-go/storage/mysql v0.5.0/go.mod h1:5AZIZqvwR8U15gEEw64TQGSDWZgcno0M/ADkj6xKbBw=
+trpc.group/trpc-go/trpc-agent-go/storage/mysql v1.12.0 h1:xhJHNdYE7Anf0TfgzzOb2bsd7v2vMinanjR+Pr1qKPY=
+trpc.group/trpc-go/trpc-agent-go/storage/mysql v1.12.0/go.mod h1:sH6nwsTT+yLAMlramY08hHeeAHuGwpKaybax2yvyq2c=

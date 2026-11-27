@@ -36,10 +36,16 @@ func aguiRequest(input aguitypes.RunAgentInput) (models.RunRequest, error) {
 	if strings.TrimSpace(last.ID) == "" || len(last.ID) > 128 || last.Role != aguitypes.RoleUser || !plainText || len(last.ToolCalls) != 0 || last.ToolCallID != "" {
 		return models.RunRequest{}, fmt.Errorf("messages 最后一项必须是带 id 的纯文本用户消息，不接受工具调用结果")
 	}
-	var props models.AGUIForwardedProps
+	var props struct {
+		models.AGUIForwardedProps
+		modelOverrides
+	}
 	raw, err := json.Marshal(input.ForwardedProps)
 	if err != nil || json.Unmarshal(raw, &props) != nil {
 		return models.RunRequest{}, fmt.Errorf("forwardedProps 格式不正确")
+	}
+	if props.modelOverrides.present() {
+		return models.RunRequest{}, fmt.Errorf("%s", modelOverrideMessage)
 	}
 	request := models.RunRequest{
 		RequestID: input.RunID, Message: text,
@@ -54,8 +60,9 @@ func aguiRequest(input aguitypes.RunAgentInput) (models.RunRequest, error) {
 // agui godoc
 // @Summary 通过 AG-UI 提交 AI 助手问题并接收事件
 // @Description 使用 RunAgentInput 的 camelCase 字段。threadId 为已创建的本人会话 ID，必须与路径 id 一致，否则返回 HTTP 400/code 400；runId 为 1～64 位字母、数字、横线或下划线，用作幂等请求标识；相同 runId 的问题和页面上下文必须一致。请求体最多 1 MiB；只使用 messages 最后一项的纯文本 user 消息，消息需包含 id，最多 16000 字节；历史和工具以服务端保存的内容为准，不接受客户端工具或 resume。
-// @Description 模型返回可见推理内容时发送 REASONING_START、REASONING_MESSAGE_START/CONTENT/END、REASONING_END；无推理内容时不发送。仅开启事件展示，不调整模型推理模式或强度；历史消息中的 reasoning_content 用于恢复已保存的推理内容。
+// @Description 模型返回可见推理内容时发送 REASONING_START、REASONING_MESSAGE_START/CONTENT/END、REASONING_END；历史消息中的 reasoning_content 用于恢复已保存的推理内容。
 // @Description forwardedProps.page_context 传递本轮页面候选，forwardedProps.skill_execution_id 关联补问；state、context 和客户端历史不作为资源授权或模型上下文。服务端先建立订阅再异步执行；断线不取消运行，重复请求不会再次执行。
+// @Description 模型及思考强度按个人偏好或系统默认值确定。通过 /api/halman/preferences 修改偏好。
 // @Description SSE 仅输出 AG-UI JSON 事件，先 RUN_STARTED、STATE_SNAPSHOT，再输出文本、状态及 CUSTOM；正常以 RUN_FINISHED 或 RUN_ERROR 结束，慢连接或阶段变化通过 CUSTOM halman.resync_required 通知恢复订阅后断开。RUN_STARTED.runId 对应请求 runId，STATE_SNAPSHOT.snapshot.run.id 是后续 REST 操作和恢复订阅使用的运行 ID。待补问或待确认的阶段结束不代表 Skill 成功。
 // @Tags AI助手
 // @Accept json

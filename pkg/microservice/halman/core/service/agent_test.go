@@ -294,14 +294,18 @@ func TestModelDoesNotFallBackToEnvironment(t *testing.T) {
 func TestContextBudgetKeepsWholeRuns(t *testing.T) {
 	now := time.Now()
 	events := []event.Event{
-		{RequestID: "old", Timestamp: now, Author: strings.Repeat("旧", 100)},
-		{RequestID: "new", Timestamp: now, Author: "用户"},
-		{RequestID: "new", Timestamp: now, Author: "助手"},
+		historyEvent("old", "user", strings.Repeat("旧", 24<<10), now),
+		historyEvent("new", "user", "问题", now),
+		historyEvent("new", "assistant", "回答", now),
 	}
-	newBytes, _ := json.Marshal(events[1])
-	answerBytes, _ := json.Marshal(events[2])
-	selected := contextEvents(events, map[string]bool{"old": true, "new": true}, now.Add(-time.Hour), len(newBytes)+len(answerBytes), nil)
-	if len(selected) != 2 || selected[0].RequestID != "new" || selected[1].RequestID != "new" {
-		t.Fatalf("上下文不能仅截取一个运行的部分消息: %+v", selected)
+	allowed := map[string]bool{"old": true, "new": true}
+	for _, limit := range []*int{nil, model.IntPtr(8)} {
+		selected := contextEvents(context.Background(), events, allowed, now.Add(-time.Hour), limit, nil)
+		if len(selected) != 2 || selected[0].RequestID != "new" || selected[1].RequestID != "new" {
+			t.Fatal("默认字节预算和显式 Token 预算均须保留完整轮次")
+		}
+	}
+	if selected := contextEvents(context.Background(), events, allowed, now.Add(-time.Hour), model.IntPtr(16384), nil); len(selected) != 3 {
+		t.Fatal("显式设置 Token 时应按 Token 估算筛选历史")
 	}
 }

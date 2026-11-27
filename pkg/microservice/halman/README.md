@@ -69,9 +69,28 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 {
   "enabled": true,
   "llm_integration_id": "已有模型集成的 ID",
-  "history_retention_days": 90
+  "llm_integration_ids": ["另一个已有模型集成的 ID"],
+  "allow_user_model_selection": false,
+  "history_retention_days": 90,
+  "max_llm_calls": 8,
+  "max_tool_iterations": 6,
+  "run_timeout_seconds": 300,
+  "history_context_tokens": null
 }
 ```
+
+`llm_integration_id` 是默认模型，始终可选。`llm_integration_ids` 可加入供用户选择的模型，省略默认模型时采用列表首项。新加入的模型须使用 Halman 支持的 OpenAI 兼容协议和供应商。
+
+`allow_user_model_selection` 同时控制用户能否保存模型和思考强度偏好，默认关闭。关闭时新运行使用管理员默认模型及其集成设置，已保存的偏好保留。重新开启后，新运行继续使用已保存的偏好。
+
+| AI 助手运行配置 | 默认值 | 允许范围及行为 |
+| --- | --- | --- |
+| `max_llm_calls` | 8 | 1–100 次，收尾回答也计入。用完配额时跳过自动标题生成。 |
+| `max_tool_iterations` | 6 | 1–100 次，同一模型响应中的多个工具计一次。 |
+| `run_timeout_seconds` | 300 | 60–3600 秒，必须是 60 的倍数。 |
+| `history_context_tokens` | `null`，沿用 64 KiB 的事件 JSON 预算 | 0–1048576 Token。省略或填 `null` 使用默认行为，设为 0 跳过历史。两种预算都在最近 60 条会话事件内按完整对话轮次选取历史，Token 数按估算计算。 |
+
+模型集成接口 `/api/aslan/system/llm/integration` 接受 `context_window`、`max_output_tokens` 和 `reasoning_effort`。两个 Token 字段省略或设为 0 时沿用原行为，启用限制时填写正整数。Halman 默认不指定模型上下文窗口，聊天输出上限为 8192 Token，标题为 128 Token。设置上下文窗口时，须同时设置小于窗口的输出上限。推理等级留空使用模型默认，OpenAI 兼容协议可填 `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，Anthropic 从 `low` 起。具体模型是否支持所选等级由连接测试确认。
 
 `enabled` 是唯一的 AI 功能开关，默认关闭，由系统管理员开启。关闭 AI 后，新建会话、提交问题、重新回答、生成重试清单、推荐问题及确认执行返回 HTTP 400/code 7214；本人历史、运行快照、反馈、报告、SSE、取消、拒绝计划、删除和只读核实仍可用，并继续要求 AI 许可证、归属和相应权限。每次模型请求及每项写操作前复查最新配置；关闭开关阻止后续调用和未提交写入，不承诺撤回已发出的模型或业务请求。
 
@@ -112,6 +131,9 @@ halman 通过现有 MongoDB repository 直接加载助手开关、保留策略�
 
 | 方法和路径 | 用途 |
 | --- | --- |
+| `GET /api/halman/models` | 返回默认模型、`allow_user_model_selection` 和模型选项。关闭时仅返回默认模型及其集成设置，`reasoning_efforts` 为空 |
+| `GET /api/halman/preferences` | 读取本人已保存的偏好。没有记录时返回 `{}` |
+| `PUT /api/halman/preferences` | 完整替换偏好，例如 `{"llm_integration_id":"模型集成ID","reasoning_effort":"low"}`。传 `{}` 清除。关闭选择开关时返回 HTTP 403 |
 | `POST /api/halman/conversations` | 新建本人会话 |
 | `GET /api/halman/conversations` | 按时间及 ID 游标分页，默认 30 条 |
 | `DELETE /api/halman/conversations/:id` | 无活动运行时隐藏会话，待核实操作记录按保留规则留存 |
@@ -269,6 +291,8 @@ aslan 需注入已有 `MYSQL_HOST`、`MYSQL_USER`、`MYSQL_PASSWORD` 配置，�
 }
 ```
 
+聊天和重新回答使用管理员默认值，或者在开关开启时使用已保存的个人偏好。偏好未指定强度时使用所选模型的集成设置。保存强度时须同时指定模型。已保存模型失效时请求会报错，用户须更改或清除偏好。发送聊天或重新回答时传入 `llm_integration_id` 或 `reasoning_effort` 会返回 HTTP 400。修改偏好只影响之后的新运行，重复请求仍复用原运行。
+
 `runId` 对应已有的幂等 `request_id`：1～64 位字母、数字、横线或下划线。同一标识重复提交时，问题、页面候选及 Skill 根关联必须一致；不同用户相互隔离。只读取 `messages` 最后一条带 `id` 的纯文本 `user` 消息，单条问题最多 16000 字节，请求体最多 1 MiB。客户端可携带历史和 `state`、`context`，但这些内容不进入模型上下文、不作为授权依据；模型历史由服务端按原有权限、版本及保留期规则构建。客户端工具、工具结果和 `resume` 暂不支持，非空时明确拒绝；写操作仍通过版本化 `confirmation` 接口确认。补问在 `forwardedProps.skill_execution_id` 中传递原根执行 ID。
 
 AG-UI 的 `RUN_STARTED.runId` 在 POST 响应中回显请求的 `runId`；实际运行 ID 为 `STATE_SNAPSHOT.snapshot.run.id`，后续 `confirmation/cancel/feedback/regenerate/retry/reconcile` 和 GET 恢复订阅均使用这个实际 ID，不能混用。恢复订阅的生成阶段使用原请求标识，确认执行阶段使用 `<原请求标识>:plan:<计划版本>`，区分生成清单与执行清单。相同 POST 只关联原运行，不重新提交模型或业务操作；已结束运行只发送当前快照及生命周期边界，回答正文通过历史接口恢复。
@@ -293,7 +317,7 @@ AG-UI 的 `RUN_STARTED.runId` 在 POST 响应中回显请求的 `runId`；实际
 
 订阅在后台执行启动前建立；恢复订阅先注册连接再读取快照，避免漏掉结束通知。执行器结束后，再读一次运行快照恢复逐项结果。重连不执行、不重放已错过的 token，客户端应先结合运行状态和历史消息恢复已保存内容。每个运行最多保留两个订阅连接，超出时淘汰最早的连接并向其发送恢复提示，最新连接始终建立成功，断线不取消运行；慢连接缓冲满或运行阶段变化时发送恢复提示，不伪造成功终态。没有观察到终态的断流需要重新查询，不能直接当作成功或失败。订阅数与全局执行并发是两回事，订阅被淘汰不返回 7217。
 
-协议层复用官方 AG-UI SDK 的 `RunAgentInput`、事件类型和 SSE Writer，以及 tRPC-Agent-Go 自带 Translator，不自行维护标准协议 DTO、消息编号或文本消息边界。AG-UI 子模块固定到与现有框架 v1.11.2 相同的提交，核心框架版本保持不变。Halman 仅适配 Zadig 页面候选、业务状态、确认卡片及恢复订阅，复用原 Runner、执行器、鉴权和原生消息存储；框架提前产生的运行完成事件不作为业务终态，默认开启模型可见推理事件，工具原始结果和参数不直接公开。不新增事件表或逐 token 持久化。标准 AG-UI HTTP 客户端可以向 POST 入口提交上述文本请求；恢复订阅及 Zadig 自定义卡片需要客户端按上述约定处理。参考 [AG-UI 架构](https://docs.ag-ui.com/concepts/architecture) 和 [事件定义](https://docs.ag-ui.com/concepts/events)。
+协议层复用官方 AG-UI SDK 的 `RunAgentInput`、事件类型和 SSE Writer，以及 tRPC-Agent-Go 自带 Translator，不自行维护标准协议 DTO、消息编号或文本消息边界。AG-UI 子模块与核心框架统一使用 v1.12.0。Halman 仅适配 Zadig 页面候选、业务状态、确认卡片及恢复订阅，复用原 Runner、执行器、鉴权和原生消息存储；框架提前产生的运行完成事件不作为业务终态，默认开启模型可见推理事件，工具原始结果和参数不直接公开。不新增事件表或逐 token 持久化。标准 AG-UI HTTP 客户端可以向 POST 入口提交上述文本请求；恢复订阅及 Zadig 自定义卡片需要客户端按上述约定处理。参考 [AG-UI 架构](https://docs.ag-ui.com/concepts/architecture) 和 [事件定义](https://docs.ag-ui.com/concepts/events)。
 
 会话创建时按系统语言使用“新会话”或“New conversation”，首条问题接收后立即以去除首尾空白的前四十字作为临时标题，并同步保存 `title_source_at`。首轮得到有效回答或进入补问、待确认状态后，复用本轮选定模型额外按本轮系统语言生成一次标题，中文建议十二至二十字，英文保持简短，均最多四十字；只输入经过凭据脱敏的首条用户问题，最多两千字，不传回答、日志或工具结果，也不注册工具。调用前复查用户登录态、最新 AI 开关和模型可用性；标题任务与本轮共用执行名额，最多十秒，不重试。正文已流式发送，但本轮终态可能因此延后最多十秒。
 

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -87,5 +88,17 @@ func TestAIReleaseSpecialistConfigRejectsInvalidJSON(t *testing.T) {
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`{"llm_integration_id":123}`)))
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected invalid parameter response: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestLLMIntegrationRequestPassesModelParameters(t *testing.T) {
+	var request ValidateLLMIntegrationRequest
+	err := json.Unmarshal([]byte(`{"id":"existing","context_window":32768,"max_output_tokens":4096,"reasoning_effort":"high"}`), &request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	integration := convertLLMArgToModel(&request.CreateLLMIntegrationRequest)
+	if request.ID != "existing" || integration.ContextWindow != 32768 || integration.MaxOutputTokens != 4096 || integration.ReasoningEffort != "high" {
+		t.Fatalf("model request parameters were lost: %+v", integration.ModelParameters)
 	}
 }

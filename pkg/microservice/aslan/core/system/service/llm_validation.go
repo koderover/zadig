@@ -33,6 +33,7 @@ func normalizeLLMIntegration(args *commonmodels.LLMIntegration) {
 	args.Name = strings.TrimSpace(args.Name)
 	args.Model = strings.TrimSpace(args.Model)
 	args.BaseURL = strings.TrimSpace(args.BaseURL)
+	args.ReasoningEffort = strings.TrimSpace(args.ReasoningEffort)
 	if args.Protocol == "" {
 		args.Protocol = llm.ProtocolOpenAI
 	}
@@ -69,7 +70,7 @@ func validateLLMIntegration(args *commonmodels.LLMIntegration) error {
 			return fmt.Errorf("base_url is invalid")
 		}
 	}
-	return nil
+	return args.ModelParameters.Validate(args.Protocol)
 }
 
 func supportedLLMProvider(provider llm.Provider) bool {

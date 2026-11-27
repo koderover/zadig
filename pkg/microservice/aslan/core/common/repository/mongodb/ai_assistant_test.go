@@ -27,9 +27,14 @@ func TestAIAssistantRuntimeReadsConfigurationOnly(t *testing.T) {
 		{name: "关闭时不读取失效模型", settings: bson.D{{Key: "enabled", Value: false}, {Key: "llm_integration_id", Value: id.Hex()}}},
 		{name: "未选择模型", settings: bson.D{{Key: "enabled", Value: true}}},
 		{name: "已删除模型不影响保留策略", settings: bson.D{{Key: "enabled", Value: true}, {Key: "llm_integration_id", Value: id.Hex()}}, wantModelError: true},
-		{name: "读取所选模型", settings: bson.D{{Key: "enabled", Value: true}, {Key: "llm_integration_id", Value: id.Hex()}}, model: bson.D{
+		{name: "读取所选模型和自定义运行预算", settings: bson.D{
+			{Key: "enabled", Value: true}, {Key: "llm_integration_id", Value: id.Hex()},
+			{Key: "max_llm_calls", Value: 12}, {Key: "max_tool_iterations", Value: 9},
+			{Key: "run_timeout_seconds", Value: 480}, {Key: "history_context_tokens", Value: 0},
+		}, model: bson.D{
 			{Key: "_id", Value: id}, {Key: "protocol", Value: "openai"}, {Key: "provider_name", Value: "other"},
 			{Key: "model", Value: "selected"}, {Key: "token", Value: "model-secret"}, {Key: "base_url", Value: "https://model.test/v1"},
+			{Key: "context_window", Value: 32768}, {Key: "max_output_tokens", Value: 4096}, {Key: "reasoning_effort", Value: "high"},
 		}},
 	} {
 		mt.Run(input.name, func(mt *mtest.T) {
@@ -71,6 +76,13 @@ func TestAIAssistantRuntimeReadsConfigurationOnly(t *testing.T) {
 				}
 				if commands[1].Command.Lookup("filter").Document().Lookup("_id").ObjectID() != id {
 					mt.Fatal("未按所选模型 ID 查询")
+				}
+				if cfg.ContextWindow != 32768 || cfg.MaxOutputTokens != 4096 || cfg.ReasoningEffort != "high" {
+					mt.Fatal("未加载所选模型的上下文窗口、输出上限和推理等级")
+				}
+				if cfg.MaxLLMCalls == nil || *cfg.MaxLLMCalls != 12 || cfg.MaxToolIterations == nil || *cfg.MaxToolIterations != 9 ||
+					cfg.RunTimeoutSeconds == nil || *cfg.RunTimeoutSeconds != 480 || cfg.HistoryContextTokens == nil || *cfg.HistoryContextTokens != 0 {
+					mt.Fatal("未加载保存的运行预算")
 				}
 			} else if cfg.Token != "" {
 				mt.Fatal("关闭或失效时不得加载模型凭据")

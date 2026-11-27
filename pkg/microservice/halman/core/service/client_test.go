@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
+	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/types"
 	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -144,6 +146,57 @@ func TestRuntimeLoadsLocallyAndValidatesConfig(t *testing.T) {
 		if _, err := p.Runtime(context.Background()); err == nil {
 			t.Fatal("配置缺失、查询失败或保留期无效时不能放行")
 		}
+	}
+}
+
+func TestModelSelectionRejectsUnavailableChoicesBeforeLookup(t *testing.T) {
+	cfg := &types.AIAssistantRuntime{AIAssistantConfig: types.AIAssistantConfig{LLMIntegrationID: "default"}}
+	p := &PlatformClient{LoadModelRuntime: func(context.Context, string) (*types.AIAssistantRuntime, error) {
+		t.Fatal("不在配置列表内的模型不能触发查找")
+		return nil, nil
+	}}
+	for _, tc := range []struct {
+		choice models.ModelSelection
+		want   error
+	}{
+		{models.ModelSelection{LLMIntegrationID: "unlisted"}, common.ErrInvalidModelPreference},
+		{models.ModelSelection{LLMIntegrationID: "default", ReasoningEffort: "custom"}, common.ErrInvalidRequest},
+		{models.ModelSelection{ReasoningEffort: "low"}, common.ErrInvalidRequest},
+	} {
+		if _, err := p.selectModel(context.Background(), cfg, tc.choice); !errors.Is(err, tc.want) {
+			t.Fatalf("选择 %+v 应返回 %v，实际为 %v", tc.choice, tc.want, err)
+		}
+	}
+	if selected, err := p.selectModel(context.Background(), cfg, models.ModelSelection{}); err != nil || selected != cfg {
+		t.Fatal("旧请求必须沿用默认模型")
+	}
+}
+
+func TestModelPreferenceRevocation(t *testing.T) {
+	used := &types.AIAssistantRuntime{UsingModelPreference: true, AIAssistantConfig: types.AIAssistantConfig{LLMIntegrationID: "alternate"}}
+	current := &types.AIAssistantRuntime{AIAssistantConfig: types.AIAssistantConfig{LLMIntegrationID: "default", LLMIntegrationIDs: []string{"alternate"}}}
+	available := false
+	p := &PlatformClient{ListModels: func(context.Context, []string) ([]types.AIAssistantModelOption, error) {
+		if available {
+			return []types.AIAssistantModelOption{{ID: "alternate"}}, nil
+		}
+		return nil, nil
+	}}
+	ctx := context.Background()
+	if p.modelPreferenceAllowed(ctx, used, current) {
+		t.Fatal("管理员关闭开关后必须阻止后续模型调用")
+	}
+	current.AllowUserModelSelection = true
+	if p.modelPreferenceAllowed(ctx, used, current) {
+		t.Fatal("管理员删除模型后必须阻止后续模型调用")
+	}
+	available = true
+	if !p.modelPreferenceAllowed(ctx, used, current) {
+		t.Fatal("重新开启开关后应允许仍可用的模型")
+	}
+	current.LLMIntegrationIDs = nil
+	if p.modelPreferenceAllowed(ctx, used, current) {
+		t.Fatal("管理员移出可选列表后必须阻止后续模型调用")
 	}
 }
 

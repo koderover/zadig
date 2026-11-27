@@ -27,6 +27,11 @@ type RunRequest struct {
 	RetryFrom        string      `json:"-"`
 }
 
+type ModelSelection struct {
+	LLMIntegrationID string `json:"llm_integration_id,omitempty"`
+	ReasoningEffort  string `json:"reasoning_effort,omitempty"`
+}
+
 type Conversation struct {
 	ID           string    `json:"id"`
 	Title        string    `json:"title"`

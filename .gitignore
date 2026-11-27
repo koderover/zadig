@@ -113,5 +113,6 @@ debug/zadig-agent
 !pkg/microservice/aslan/core/system/handler/ai_management_test.go
 !pkg/microservice/aslan/core/system/service/ai_release_specialist_test.go
 !pkg/microservice/aslan/core/common/service/llmservice/ai_release_specialist_test.go
+!pkg/tool/llm/model_parameters_test.go
 !pkg/microservice/aslan/core/common/repository/mongodb/ai_release_specialist_test.go
 !pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller/ai_release_specialist_test.go

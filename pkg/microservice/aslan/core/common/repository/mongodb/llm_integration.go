@@ -95,6 +95,36 @@ func (c *LLMIntegrationColl) FindByID(ctx context.Context, id string) (*models.L
 	return res, err
 }
 
+func (c *LLMIntegrationColl) FindByIDs(ctx context.Context, ids []string) (map[string]*models.LLMIntegration, error) {
+	objectIDs := make([]primitive.ObjectID, len(ids))
+	for i, id := range ids {
+		oid, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return nil, err
+		}
+		objectIDs[i] = oid
+	}
+	cursor, err := c.Find(ctx, bson.M{"_id": bson.M{"$in": objectIDs}})
+	if err != nil {
+		return nil, err
+	}
+	var found []*models.LLMIntegration
+	if err := cursor.All(ctx, &found); err != nil {
+		return nil, err
+	}
+	byID := make(map[primitive.ObjectID]*models.LLMIntegration, len(found))
+	for _, item := range found {
+		byID[item.ID] = item
+	}
+	result := make(map[string]*models.LLMIntegration, len(found))
+	for i, id := range ids {
+		if item := byID[objectIDs[i]]; item != nil {
+			result[id] = item
+		}
+	}
+	return result, nil
+}
+
 func (c *LLMIntegrationColl) Update(ctx context.Context, id string, args *models.LLMIntegration) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {

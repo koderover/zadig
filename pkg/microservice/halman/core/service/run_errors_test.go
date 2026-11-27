@@ -28,7 +28,19 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-func TestConfiguredRunnerFinalizesAfterSixToolIterations(t *testing.T) {
+func TestConfiguredRunnerFinalizesWithinRunLimits(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		testRunnerFinalization(t, nil, nil, 6)
+	})
+	t.Run("configured tool iterations", func(t *testing.T) {
+		testRunnerFinalization(t, model.IntPtr(8), model.IntPtr(2), 2)
+	})
+	t.Run("configured model calls", func(t *testing.T) {
+		testRunnerFinalization(t, model.IntPtr(3), model.IntPtr(6), 2)
+	})
+}
+
+func testRunnerFinalization(t *testing.T, maxCalls, maxTools *int, toolIterations int) {
 	store, mock := mockStore(t)
 	platform := testPlatform(t, func(w http.ResponseWriter, r *http.Request) {
 		t.Fatalf("缺参期间不应查询业务接口: %s", r.URL)
@@ -40,9 +52,9 @@ func TestConfiguredRunnerFinalizesAfterSixToolIterations(t *testing.T) {
 	e := reportExecution("service_diagnosis")
 	e.RootID = e.Run.ID
 	e.Run.Context = models.PageContext{}
-	for i := 0; i < 7; i++ {
+	for i := 0; i <= toolIterations; i++ {
 		mock.ExpectQuery("SELECT id,context,resource_scopes").WillReturnRows(sqlmock.NewRows([]string{"id", "context", "scopes"}).AddRow(e.Run.ID, "{}", "[]"))
-		if i < 6 {
+		if i < toolIterations {
 			expectSkillInputSave(mock, e, "awaiting_input")
 		}
 	}
@@ -59,14 +71,14 @@ func TestConfiguredRunnerFinalizesAfterSixToolIterations(t *testing.T) {
 			}
 			delta := map[string]any{"role": "assistant"}
 			reason := "tool_calls"
-			if calls <= 6 {
+			if calls <= toolIterations {
 				delta["tool_calls"] = []any{map[string]any{"index": 0, "id": fmt.Sprintf("call-%d", calls), "type": "function", "function": map[string]string{"name": "service_diagnosis", "arguments": "{}"}}}
 			} else {
 				tools, _ := request["tools"].([]any)
-				if calls != 7 || len(tools) != 0 {
-					t.Fatal("第七次模型调用必须无工具收尾，不能增加执行上限")
+				if calls != toolIterations+1 || len(tools) != 0 {
+					t.Fatal("最后一次模型调用必须无工具收尾，不能增加执行上限")
 				}
-				if !strings.Contains(string(raw), "本轮工具调用已达到上限") {
+				if !strings.Contains(string(raw), "这是本轮最后一次回答") {
 					t.Fatal("收尾请求必须包含进度和阻塞原因说明")
 				}
 				delta["content"] = "草稿已保存，还需要项目和环境信息。"
@@ -79,7 +91,10 @@ func TestConfiguredRunnerFinalizesAfterSixToolIterations(t *testing.T) {
 	}
 	mem := inmemory.NewSessionService()
 	defer mem.Close()
-	cfg := &types.AIAssistantRuntime{AIAssistantConfig: types.AIAssistantConfig{LLMIntegrationID: "selected"}, Protocol: "openai", Provider: "other", Model: "test", Token: "model-token", BaseURL: "http://model.internal/v1"}
+	cfg := &types.AIAssistantRuntime{
+		AIAssistantConfig: types.AIAssistantConfig{LLMIntegrationID: "selected", MaxLLMCalls: maxCalls, MaxToolIterations: maxTools},
+		Protocol:          "openai", Provider: "other", Model: "test", Token: "model-token", BaseURL: "http://model.internal/v1",
+	}
 	r, err := makeRunner(cfg, mem, platform, token("user"), s)
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +127,7 @@ func TestConfiguredRunnerFinalizesAfterSixToolIterations(t *testing.T) {
 			}
 		}
 	}
-	if calls != 7 || tools != 6 || answer != "草稿已保存，还需要项目和环境信息。" || e.Outcome != "awaiting_input" {
+	if calls != toolIterations+1 || e.ModelCalls != calls || tools != toolIterations || answer != "草稿已保存，还需要项目和环境信息。" || e.Outcome != "awaiting_input" {
 		t.Fatalf("收尾不符合预期: calls=%d tools=%d answer=%q outcome=%s", calls, tools, answer, e.Outcome)
 	}
 }

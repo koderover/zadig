@@ -39,6 +39,8 @@ type CreateLLMIntegrationRequest struct {
 	Model        string       `json:"model"`
 	EnableProxy  bool         `json:"enable_proxy"`
 	IsDefault    bool         `json:"is_default"`
+
+	llm.ModelParameters
 }
 
 type ValidateLLMIntegrationRequest struct {
@@ -274,5 +276,7 @@ func convertLLMArgToModel(args *CreateLLMIntegrationRequest) *commonmodels.LLMIn
 		EnableProxy:  args.EnableProxy,
 		Model:        args.Model,
 		IsDefault:    args.IsDefault,
+
+		ModelParameters: args.ModelParameters,
 	}
 }

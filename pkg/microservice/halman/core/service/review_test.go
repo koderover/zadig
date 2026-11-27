@@ -96,12 +96,12 @@ func TestLogicalTurnBudgetCannotKeepAnswerWithoutQuestion(t *testing.T) {
 		historyEvent("question", "user", "问题", now),
 		historyEvent("answer", "assistant", "答案", now),
 	}
-	answer, _ := json.Marshal(events[1])
 	selected := contextEvents(
+		context.Background(),
 		events,
 		map[string]bool{"question": true, "answer": true},
 		now.Add(-time.Hour),
-		len(answer),
+		model.IntPtr(4),
 		map[string]string{"question": "turn", "answer": "turn"},
 	)
 	if len(selected) != 0 {

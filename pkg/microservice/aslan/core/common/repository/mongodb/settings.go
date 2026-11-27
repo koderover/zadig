@@ -378,6 +378,7 @@ func (c *SystemSettingColl) getAIAssistantSettings(ctx context.Context) (*models
 	if settings.AIAssistantConfig.HistoryRetentionDays == 0 {
 		settings.AIAssistantConfig.HistoryRetentionDays = 90
 	}
+	*settings.AIAssistantConfig = settings.AIAssistantConfig.WithRunDefaults()
 	return &settings, nil
 }
 

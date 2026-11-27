@@ -11,6 +11,9 @@ type Router struct{ Service *service.AgentService }
 func (r *Router) Inject(router *gin.RouterGroup) {
 	a := &API{Agent: r.Service}
 	api := router.Group("/api/halman", a.authenticate)
+	api.GET("/models", a.requireEnabled, a.listModels)
+	api.GET("/preferences", a.getPreferences)
+	api.PUT("/preferences", a.putPreferences)
 	api.GET("/skills", a.requireSkillManagementPermission, a.listSkills)
 	api.PUT("/skills/:skill_id", a.requireSkillManagementPermission, a.updateSkill)
 	api.POST("/conversations", a.requireEnabled, a.createConversation)

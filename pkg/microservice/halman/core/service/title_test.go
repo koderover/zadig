@@ -54,7 +54,7 @@ func TestGenerateTitleBoundsAndFallback(t *testing.T) {
 	} {
 		t.Run(input.name, func(t *testing.T) {
 			m := &titleModel{text: input.text, err: input.err}
-			title, in, out := generateTitle(context.Background(), m, strings.Repeat("中", 2500)+" password=private-value", "")
+			title, in, out := generateTitle(context.Background(), m, strings.Repeat("中", 2500)+" password=private-value", &types.AIAssistantRuntime{})
 			if title != input.want || !utf8.ValidString(title) {
 				t.Fatalf("标题不符: %q", title)
 			}
@@ -67,7 +67,7 @@ func TestGenerateTitleBoundsAndFallback(t *testing.T) {
 		})
 	}
 	m := &titleModel{text: "数据库连接 password=private-value"}
-	title, _, _ := generateTitle(context.Background(), m, "password=private-value", "")
+	title, _, _ := generateTitle(context.Background(), m, "password=private-value", &types.AIAssistantRuntime{})
 	if strings.Contains(title, "private-value") || strings.Contains(m.request.Messages[1].Content, "private-value") {
 		t.Fatal("标题输入输出必须沿用凭据脱敏")
 	}
@@ -157,8 +157,17 @@ func TestLaterRunSkipsTitleModel(t *testing.T) {
 	mock.ExpectQuery("SELECT count.* FROM `ai_conversation`").WithArgs("conversation", "user", r.CreatedAt).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 	// 不提供模型或平台客户端，非首轮不应访问它们。
 	s := &AgentService{Store: store}
-	if in, out := s.generateConversationTitle(context.Background(), "user", r, "继续", nil); in != 0 || out != 0 {
+	ctx := context.WithValue(context.Background(), executionKey{}, &execution{})
+	if in, out := s.generateConversationTitle(ctx, "user", r, "继续", &types.AIAssistantRuntime{}); in != 0 || out != 0 {
 		t.Fatal("后续轮次不产生标题用量")
+	}
+}
+
+func TestTitleRespectsModelCallLimit(t *testing.T) {
+	ctx := context.WithValue(context.Background(), executionKey{}, &execution{ModelCalls: 1})
+	cfg := &types.AIAssistantRuntime{AIAssistantConfig: types.AIAssistantConfig{MaxLLMCalls: model.IntPtr(1)}}
+	if in, out := (&AgentService{}).generateConversationTitle(ctx, "user", &models.Run{}, "问题", cfg); in != 0 || out != 0 {
+		t.Fatal("模型调用配额耗尽时必须跳过标题")
 	}
 }
 

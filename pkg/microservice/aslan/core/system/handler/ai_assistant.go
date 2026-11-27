@@ -57,7 +57,7 @@ func GetAIAssistantConfig(c *gin.Context) {
 
 // UpdateAIAssistantConfig godoc
 // @Summary 更新 AI 助手配置
-// @Description 要求有效的 AI 许可证，且仅具备 AI 能力编辑权限的用户可写。enabled 控制 AI 功能，默认关闭；业务写入仍须用户确认并校验实际资源权限。关闭 AI 保留历史查询和取消能力。模型须选择已有集成，聊天保留天数为 30～365 天。网关访问路径为 /api/aslan/system/ai/assistant。
+// @Description 要求有效的 AI 许可证，且仅具备 AI 能力编辑权限的用户可写。enabled 控制 AI 功能，默认关闭。allow_user_model_selection 控制用户能否保存模型及思考强度偏好，默认关闭。业务写入仍须用户确认并校验实际资源权限。关闭 AI 保留历史查询和取消能力。模型须选择已有集成，聊天保留天数为 30～365 天。网关访问路径为 /api/aslan/system/ai/assistant。
 // @Description 标准错误响应：配置读取/更新失败 code=7210/7211，参数错误 code=400，许可证无效 code=7050；业务错误使用 HTTP 400。
 // @Tags system
 // @Accept json

@@ -11,16 +11,21 @@ import (
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/common"
+	"github.com/koderover/zadig/v2/pkg/microservice/halman/core/repository/models"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type PlatformClient struct {
-	Users          *userclient.Client
-	Auth           authv3.AuthorizationClient
-	HTTP           *http.Client
-	CheckAILicense func() error
-	LoadRuntime    func(context.Context) (*types.AIAssistantRuntime, error)
+	Users            *userclient.Client
+	Auth             authv3.AuthorizationClient
+	HTTP             *http.Client
+	CheckAILicense   func() error
+	LoadRuntime      func(context.Context) (*types.AIAssistantRuntime, error)
+	LoadModelRuntime func(context.Context, string) (*types.AIAssistantRuntime, error)
+	ListModels       func(context.Context, []string) ([]types.AIAssistantModelOption, error)
 }
 
 // 仅提取身份展示所需字段，不向模型传递完整 Token 或其他 Claims。
@@ -77,6 +82,123 @@ func (p *PlatformClient) Runtime(ctx context.Context) (*types.AIAssistantRuntime
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func (p *PlatformClient) ModelOptions(ctx context.Context, cfg types.AIAssistantConfig) (types.AIAssistantModelOptions, error) {
+	if p.ListModels == nil {
+		return types.AIAssistantModelOptions{}, fmt.Errorf("AI 助手模型列表读取未初始化")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	ids := cfg.ModelIDs()
+	if !cfg.AllowUserModelSelection {
+		ids = nil
+		if cfg.LLMIntegrationID != "" {
+			ids = []string{cfg.LLMIntegrationID}
+		}
+	}
+	options, err := p.ListModels(ctx, ids)
+	if !cfg.AllowUserModelSelection {
+		for i := range options {
+			options[i].ReasoningEfforts = []string{}
+		}
+	}
+	return types.AIAssistantModelOptions{DefaultModelID: cfg.LLMIntegrationID, Models: options, AllowUserModelSelection: cfg.AllowUserModelSelection}, err
+}
+
+func validateModelPreference(cfg *types.AIAssistantRuntime, selection models.ModelSelection) error {
+	id := selection.LLMIntegrationID
+	if selection.ReasoningEffort != "" {
+		if id == "" {
+			return fmt.Errorf("%w: 保存思考强度时必须指定模型", common.ErrInvalidRequest)
+		}
+		if err := (llm.ModelParameters{ReasoningEffort: selection.ReasoningEffort}).Validate(llm.ProtocolOpenAI); err != nil {
+			return fmt.Errorf("%w: %v", common.ErrInvalidRequest, err)
+		}
+	}
+	if id != "" && !cfg.AllowsModel(id) {
+		return common.ErrInvalidModelPreference
+	}
+	return nil
+}
+
+func (p *PlatformClient) selectModel(ctx context.Context, cfg *types.AIAssistantRuntime, selection models.ModelSelection) (*types.AIAssistantRuntime, error) {
+	if err := validateModelPreference(cfg, selection); err != nil {
+		return nil, err
+	}
+	id := selection.LLMIntegrationID
+	if id == "" {
+		return cfg, nil
+	}
+	if id != cfg.LLMIntegrationID {
+		if p.LoadModelRuntime == nil {
+			return nil, common.ErrModelUnavailable
+		}
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		selected, err := p.LoadModelRuntime(ctx, id)
+		if err != nil || selected == nil {
+			return nil, common.ErrModelUnavailable
+		}
+		if !selected.Enabled {
+			return nil, common.ErrAIDisabled
+		}
+		if !selected.AllowUserModelSelection || selected.LLMIntegrationID != id {
+			return nil, common.ErrInvalidModelPreference
+		}
+		cfg = selected
+	}
+	if _, err := modelEndpoint(cfg); err != nil {
+		return nil, common.ErrInvalidModelPreference
+	}
+	override := *cfg
+	override.UsingModelPreference = true
+	if selection.ReasoningEffort != "" {
+		override.ReasoningEffort = selection.ReasoningEffort
+	}
+	return &override, nil
+}
+
+func (p *PlatformClient) modelPreferenceAllowed(ctx context.Context, cfg, current *types.AIAssistantRuntime) bool {
+	if !cfg.UsingModelPreference {
+		return true
+	}
+	id := cfg.LLMIntegrationID
+	if !current.AllowUserModelSelection || !current.AllowsModel(id) {
+		return false
+	}
+	if id == current.LLMIntegrationID {
+		_, err := modelEndpoint(current)
+		return err == nil
+	}
+	available, err := p.modelAvailable(ctx, id)
+	return err == nil && available
+}
+
+func (p *PlatformClient) modelAvailable(ctx context.Context, id string) (bool, error) {
+	if p.ListModels == nil {
+		return false, common.ErrModelUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	options, err := p.ListModels(ctx, []string{id})
+	return len(options) == 1 && options[0].ID == id, err
+}
+
+func (s *AgentService) UpdateModelPreference(ctx context.Context, user string, cfg *types.AIAssistantRuntime, preference models.ModelSelection) error {
+	if err := validateModelPreference(cfg, preference); err != nil {
+		return err
+	}
+	if id := preference.LLMIntegrationID; id != "" {
+		available, err := s.Platform.modelAvailable(ctx, id)
+		if err != nil {
+			return err
+		}
+		if !available {
+			return common.ErrInvalidModelPreference
+		}
+	}
+	return s.Store.SaveModelPreference(ctx, user, preference)
 }
 
 // 直连内部 API 前仍由 user 验证原始 Token、撤销状态及 MFA，不以服务身份执行用户操作。
