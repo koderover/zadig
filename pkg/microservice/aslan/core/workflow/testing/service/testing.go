@@ -499,6 +499,10 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 		}
 	}
 	htmlReportPath := pkgconfig.LocalHtmlReportPath(projectName, workflowName, jobTask.Name, taskID)
+	// The data directory is not mounted or baked into the image by default.
+	if err := os.MkdirAll(pkgconfig.DataPath(), os.ModePerm); err != nil {
+		return "", fmt.Errorf("failed to create data root, path: %s, err: %w", pkgconfig.DataPath(), err)
+	}
 	dataRoot, err := os.OpenRoot(pkgconfig.DataPath())
 	if err != nil {
 		return "", fmt.Errorf("failed to open data root, path: %s, err: %w", pkgconfig.DataPath(), err)
