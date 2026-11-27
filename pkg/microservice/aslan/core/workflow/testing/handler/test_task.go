@@ -329,6 +329,23 @@ func GetTestTaskHtmlReportInfo(c *gin.Context) {
 	serveHTMLTestReport(c, htmlReportDir)
 }
 
+func GetScanningTaskHtmlReport(c *gin.Context) {
+	taskIDStr := c.Param("taskID")
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		c.JSON(500, gin.H{"err": fmt.Sprintf("failed to parse taskID %s, err :%s", taskIDStr, err)})
+		return
+	}
+
+	htmlReportDir, err := service.GetScanningTaskHTMLReport(c.Param("projectName"), c.Param("scanningID"), taskID, ginzap.WithContext(c).Sugar())
+	if err != nil {
+		c.JSON(500, gin.H{"err": fmt.Sprintf("failed to get scanning task html report, err :%s", err)})
+		return
+	}
+
+	serveHTMLTestReport(c, htmlReportDir)
+}
+
 func serveHTMLTestReport(c *gin.Context, htmlReportDir string) {
 	// Scripts may run for interactive reports, but never with the main site's origin.
 	c.Header("Content-Security-Policy", "sandbox allow-scripts")

@@ -932,6 +932,25 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		}
 	}
 
+	// init archive html report step
+	if htmlReportPath := scanningInfo.AdvancedSetting.HtmlReportPath; htmlReportPath != "" {
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, &commonmodels.StepTask{
+			Name:      config.TestJobHTMLReportStepName,
+			JobName:   jobTask.Name,
+			StepType:  config.StepTarArchive,
+			Onfailure: true,
+			Spec: &step.StepTarArchiveSpec{
+				FileName:     setting.HtmlReportArchivedFileName,
+				AbsResultDir: true,
+				ResultDirs:   []string{path.Base(htmlReportPath)},
+				ChangeTarDir: true,
+				TarDir:       "$WORKSPACE/" + path.Dir(htmlReportPath),
+				DestDir:      destDir,
+				S3DestDir:    path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "html-report"),
+			},
+		})
+	}
+
 	// init debug after step
 	debugAfterStep := &commonmodels.StepTask{
 		Name:     scanning.Name + "-debug-after",

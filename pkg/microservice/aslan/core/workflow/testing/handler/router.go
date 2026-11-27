@@ -28,6 +28,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		testReport.GET("/html/testing/:projectName/:testingName/:taskID/*path", GetTestTaskHtmlReportInfo)
 		testReport.GET("/html/workflowv4/:projectName/:workflowName/:jobName/:taskID/*path", GetWorkflowV4HTMLTestReport)
+		testReport.GET("/html/scanning/:projectName/:scanningID/:taskID/*path", GetScanningTaskHtmlReport)
 	}
 
 	// sse apis

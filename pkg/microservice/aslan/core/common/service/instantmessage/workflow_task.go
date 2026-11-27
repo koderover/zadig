@@ -135,6 +135,7 @@ var (
 		"notificationTextImageInfo":          "镜像信息",
 		"notificationTextTestResult":         "测试结果",
 		"notificationTextViewTestReport":     "查看测试报告",
+		"notificationTextViewScanningReport": "查看扫描报告",
 		"notificationTextSonarMetrics":       "扫描结果",
 	}
 
@@ -220,6 +221,7 @@ var (
 		"notificationTextImageInfo":          "Image Information",
 		"notificationTextTestResult":         "Test Result",
 		"notificationTextViewTestReport":     "View Test Report",
+		"notificationTextViewScanningReport": "View Scanning Report",
 		"notificationTextSonarMetrics":       "Scanning Result",
 	}
 )

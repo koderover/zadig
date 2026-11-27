@@ -267,7 +267,7 @@ func BuildWorkflowJobContents(args *BuildJobContentsArgs) ([]string, []*webhookn
 				}
 				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextTestResult\"}}**: %s  \n", testResult)
 				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextTestResult\"}}: %s \n", testResult)
-				if reportURL := testingHTMLReportURL(args.BaseURI, args.Task, job); reportURL != "" {
+				if reportURL := htmlReportURL(args.BaseURI, args.Task, job); reportURL != "" {
 					workflowNotifyJob.HTMLReportURL = reportURL
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}[{{getText \"notificationTextViewTestReport\"}}](%s)  \n", reportURL)
 					mailJobTplcontent += fmt.Sprintf("<a href=\"%s\">{{getText \"notificationTextViewTestReport\"}}</a> \n", html.EscapeString(reportURL))
@@ -286,6 +286,11 @@ func BuildWorkflowJobContents(args *BuildJobContentsArgs) ([]string, []*webhookn
 				if sonarMetricsText != "" {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextSonarMetrics\"}}**: %s  \n", sonarMetricsText)
 					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextSonarMetrics\"}}: %s \n", mailSonarMetricsText)
+				}
+				if reportURL := htmlReportURL(args.BaseURI, args.Task, job); reportURL != "" {
+					workflowNotifyJob.HTMLReportURL = reportURL
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}[{{getText \"notificationTextViewScanningReport\"}}](%s)  \n", reportURL)
+					mailJobTplcontent += fmt.Sprintf("<a href=\"%s\">{{getText \"notificationTextViewScanningReport\"}}</a> \n", html.EscapeString(reportURL))
 				}
 			}
 
@@ -307,7 +312,7 @@ func BuildWorkflowJobContents(args *BuildJobContentsArgs) ([]string, []*webhookn
 	return jobContents, workflowNotifyStages, nil
 }
 
-func testingHTMLReportURL(baseURI string, task *models.WorkflowTask, job *models.JobTask) string {
+func htmlReportURL(baseURI string, task *models.WorkflowTask, job *models.JobTask) string {
 	switch job.Status {
 	case config.StatusPassed, config.StatusFailed, config.StatusUnstable, config.StatusManualApproval:
 	default:

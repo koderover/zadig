@@ -175,6 +175,7 @@ type ZadigScanningJobSpec struct {
 	Repos         []*types.Repository    `bson:"repos"           json:"repos"`
 	SonarMetrics  *step.SonarMetrics     `bson:"sonar_metrics"   json:"sonar_metrics"`
 	IsHasArtifact bool                   `bson:"is_has_artifact" json:"is_has_artifact"`
+	HtmlReport    bool                   `bson:"html_report"     json:"html_report"`
 	LinkURL       string                 `bson:"link_url"        json:"link_url"`
 	ScanningName  string                 `bson:"scanning_name"   json:"scanning_name"`
 	Envs          []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
@@ -3138,6 +3139,11 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			for _, step := range taskJobSpec.Steps {
 				if step.Name == config.ScanningJobArchiveResultStepName {
 					spec.IsHasArtifact = true
+				}
+				if step.Name == config.TestJobHTMLReportStepName &&
+					(job.Status == config.StatusPassed || job.Status == config.StatusFailed ||
+						job.Status == config.StatusUnstable || job.Status == config.StatusManualApproval) {
+					spec.HtmlReport = true
 				}
 				if step.StepType == config.StepGit {
 					stepSpec := &stepspec.StepGitSpec{}

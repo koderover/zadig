@@ -429,8 +429,8 @@ func GetWorkflowV4HTMLTestReport(projectName, workflowName, jobName string, task
 			if job.Name != jobName {
 				continue
 			}
-			if job.JobType != string(config.JobZadigTesting) {
-				return "", fmt.Errorf("job: %s was not a testing job", jobName)
+			if job.JobType != string(config.JobZadigTesting) && job.JobType != string(config.JobZadigScanning) {
+				return "", fmt.Errorf("job: %s was not a testing or scanning job", jobName)
 			}
 			jobTask = job
 		}
@@ -467,6 +467,31 @@ func GetTestTaskHTMLTestReport(projectName, testName string, taskID int64, log *
 	return downloadHtmlReportFromJobTask(jobTask, workflowTask.ProjectName, workflowName, taskID, log)
 }
 
+func GetScanningTaskHTMLReport(projectName, scanningID string, taskID int64, log *zap.SugaredLogger) (string, error) {
+	workflowName := commonutil.GenScanningWorkflowName(scanningID)
+	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return "", fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	if projectName == "" || workflowTask.ProjectName != projectName {
+		return "", fmt.Errorf("workflow task does not belong to project %q", projectName)
+	}
+	var jobTask *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == string(config.JobZadigScanning) {
+				jobTask = job
+				break
+			}
+		}
+	}
+	if jobTask == nil {
+		return "", fmt.Errorf("cannot find job task for scanning task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+
+	return downloadHtmlReportFromJobTask(jobTask, workflowTask.ProjectName, workflowName, taskID, log)
+}
+
 func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, workflowName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 	if err := commonmodels.IToi(jobTask.Spec, jobSpec); err != nil {
@@ -488,7 +513,7 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, w
 		stepTask = step
 	}
 	if stepTask == nil {
-		err := fmt.Errorf("cannot find step task for test task, workflow name: %s, task id: %d", workflowName, taskID)
+		err := fmt.Errorf("cannot find html report step, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobTask.Name)
 		log.Error(err)
 		return "", err
 	}
